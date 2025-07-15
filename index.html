@@ -3,27 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>n8n Webhook Interface</title>
+    <title>Instagram Profile Analyzer</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
             margin: 20px auto;
             padding: 20px;
-            background-color: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
         }
         
         .container {
             background: white;
             padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             margin-bottom: 20px;
         }
         
         h1, h2 {
             color: #333;
             text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            background: linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #e1306c, #fd1d1d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2.5em;
+            font-weight: bold;
         }
         
         .form-group {
@@ -32,160 +43,281 @@
         
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: bold;
             color: #555;
+            font-size: 16px;
         }
         
         input[type="text"] {
             width: 100%;
-            padding: 12px;
+            padding: 15px;
             border: 2px solid #ddd;
-            border-radius: 4px;
+            border-radius: 25px;
             font-size: 16px;
             box-sizing: border-box;
+            transition: border-color 0.3s;
         }
         
         input[type="text"]:focus {
             outline: none;
-            border-color: #4CAF50;
+            border-color: #e1306c;
+            box-shadow: 0 0 10px rgba(225, 48, 108, 0.3);
         }
         
         button {
-            background-color: #4CAF50;
+            background: linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #e1306c, #fd1d1d);
             color: white;
-            padding: 12px 24px;
+            padding: 15px 30px;
             border: none;
-            border-radius: 4px;
+            border-radius: 25px;
             cursor: pointer;
             font-size: 16px;
+            font-weight: bold;
             width: 100%;
-            transition: background-color 0.3s;
+            transition: transform 0.3s, box-shadow 0.3s;
         }
         
         button:hover {
-            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
         
         button:disabled {
-            background-color: #cccccc;
+            background: #cccccc;
             cursor: not-allowed;
+            transform: none;
         }
         
         .status {
             margin-top: 15px;
-            padding: 10px;
-            border-radius: 4px;
+            padding: 12px;
+            border-radius: 10px;
             text-align: center;
             display: none;
+            font-weight: bold;
         }
         
         .status.success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
         }
         
         .status.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background: linear-gradient(45deg, #f44336, #da190b);
+            color: white;
         }
         
-        .received-data {
-            background: #f8f9fa;
-            border-radius: 4px;
-            max-height: 400px;
-            overflow-y: auto;
+        .profile-container {
+            background: white;
+            border-radius: 15px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
         }
         
-        .data-item {
+        .profile-header {
+            background: linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #e1306c, #fd1d1d);
+            padding: 30px;
+            color: white;
+            text-align: center;
+        }
+        
+        .profile-pic {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid white;
+            margin: 0 auto 20px;
+            display: block;
+            object-fit: cover;
+        }
+        
+        .profile-info {
+            padding: 30px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .stat {
+            text-align: center;
             padding: 15px;
-            border-bottom: 1px solid #dee2e6;
-            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
         }
         
-        .data-item:last-child {
-            border-bottom: none;
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            display: block;
         }
         
-        .timestamp {
+        .stat-label {
             font-size: 12px;
-            color: #6c757d;
-            margin-bottom: 5px;
+            color: #666;
+            text-transform: uppercase;
+            margin-top: 5px;
         }
         
-        .data-content {
-            background: #ffffff;
-            padding: 10px;
-            border-radius: 4px;
-            border-left: 4px solid #007bff;
+        .posts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
         }
         
-        pre {
-            margin: 0;
-            white-space: pre-wrap;
-            word-wrap: break-word;
+        .post-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .post-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .post-image {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+        }
+        
+        .post-content {
+            padding: 20px;
+        }
+        
+        .post-caption {
+            font-size: 14px;
+            line-height: 1.4;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .post-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .post-date {
+            font-size: 11px;
+            color: #999;
+            margin-top: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
         }
         
         .refresh-btn {
-            background-color: #007bff;
+            background: linear-gradient(45deg, #007bff, #0056b3);
             width: auto;
             margin-bottom: 15px;
-        }
-        
-        .refresh-btn:hover {
-            background-color: #0056b3;
+            display: inline-block;
         }
         
         .endpoint-info {
-            background: #e9ecef;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 15px;
+            background: linear-gradient(45deg, #17a2b8, #138496);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
         }
         
         .endpoint-info code {
-            background: #f8f9fa;
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: monospace;
+            background: rgba(255,255,255,0.2);
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .image-placeholder {
+            width: 100%;
+            height: 250px;
+            background: linear-gradient(45deg, #f0f0f0, #e0e0e0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Send to n8n Webhook</h1>
+        <h1>📸 Instagram Profile Analyzer</h1>
         
         <div class="form-group">
-            <label for="messageInput">Enter username:</label>
-            <input type="text" id="messageInput" placeholder="Enter username here...">
+            <label for="messageInput">Enter Instagram Username:</label>
+            <input type="text" id="messageInput" placeholder="e.g., amir__moahamdi">
         </div>
         
-        <button id="sendButton" onclick="sendMessage()">Send to n8n</button>
+        <button id="sendButton" onclick="sendMessage()">🔍 Analyze Profile</button>
         
         <div id="status" class="status"></div>
     </div>
     
     <div class="container">
-        <h2>📨 Data Received from n8n</h2>
+        <h2>📊 Analysis Results</h2>
         
         <div class="endpoint-info">
-            <strong>n8n HTTP Request URL:</strong> <code>http://localhost:5500/receive-data</code><br>
-            <strong>Method:</strong> POST<br>
-            <strong>Content-Type:</strong> application/json
+            <strong>🔗 n8n Webhook Endpoint:</strong> <code>https://testing-n8n-project-production.up.railway.app/receive-data</code><br>
+            <strong>📡 Method:</strong> POST<br>
+            <strong>📋 Content-Type:</strong> application/json
         </div>
         
         <button class="refresh-btn" onclick="loadReceivedData()">🔄 Refresh Data</button>
         
-        <div class="received-data" id="receivedData">
-            <div class="data-item">
-                <em>No data received yet... Waiting for n8n to send data.</em>
+        <div id="receivedData">
+            <div class="no-data">
+                💤 No profile data received yet...<br>
+                <small>Enter a username above and click "Analyze Profile"</small>
             </div>
         </div>
     </div>
 
     <script>
+        // Proxy image loader function
+        const loadWithProxy = async (imageUrl) => {
+            const proxyUrls = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(imageUrl)}`,
+                `https://cors-anywhere.herokuapp.com/${imageUrl}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(imageUrl)}`,
+                imageUrl // fallback to direct
+            ];
+            
+            for (const proxyUrl of proxyUrls) {
+                try {
+                    const response = await fetch(proxyUrl);
+                    if (response.ok) {
+                        return proxyUrl;
+                    }
+                } catch (error) {
+                    console.log(`Proxy failed: ${proxyUrl}`);
+                }
+            }
+            return imageUrl; // return original if all proxies fail
+        };
+
         // Send message to n8n webhook
         async function sendMessage() {
             const input = document.getElementById('messageInput');
@@ -195,12 +327,12 @@
             const message = input.value.trim();
             
             if (!message) {
-                showStatus('Please enter a username', 'error');
+                showStatus('⚠️ Please enter an Instagram username', 'error');
                 return;
             }
             
             button.disabled = true;
-            button.textContent = 'Sending...';
+            button.textContent = '🔄 Analyzing...';
             status.style.display = 'none';
             
             try {
@@ -218,20 +350,22 @@
                 });
                 
                 if (response.ok) {
-                    showStatus('Message sent to n8n successfully!', 'success');
+                    showStatus('✅ Analysis request sent! Data will appear below when ready.', 'success');
                     input.value = '';
+                    // Auto-refresh data in 3 seconds
+                    setTimeout(loadReceivedData, 3000);
                 } else {
                     const errorText = await response.text();
                     console.error('Server error:', response.status, errorText);
-                    showStatus(`Error: ${response.status} - ${response.statusText}`, 'error');
+                    showStatus(`❌ Error: ${response.status} - ${response.statusText}`, 'error');
                 }
                 
             } catch (error) {
                 console.error('Network error:', error);
-                showStatus(`Error: ${error.message}`, 'error');
+                showStatus(`❌ Error: ${error.message}`, 'error');
             } finally {
                 button.disabled = false;
-                button.textContent = 'Send to n8n';
+                button.textContent = '🔍 Analyze Profile';
             }
         }
         
@@ -244,23 +378,119 @@
                 const container = document.getElementById('receivedData');
                 
                 if (data.length === 0) {
-                    container.innerHTML = '<div class="data-item"><em>No data received yet...</em></div>';
+                    container.innerHTML = '<div class="no-data">💤 No profile data received yet...<br><small>Enter a username above and click "Analyze Profile"</small></div>';
                     return;
                 }
                 
-                container.innerHTML = data.map(item => `
-                    <div class="data-item">
-                        <div class="timestamp">
-                            📅 Received: ${new Date(item.receivedAt).toLocaleString()}
-                        </div>
-                        <div class="data-content">
-                            <pre>${JSON.stringify(item, null, 2)}</pre>
-                        </div>
-                    </div>
-                `).join('');
+                // Process and display Instagram profile data
+                container.innerHTML = '';
+                
+                for (const item of data) {
+                    if (item.userInformation) {
+                        await displayInstagramProfile(item.userInformation, item.receivedAt, container);
+                    } else {
+                        // Fallback for non-Instagram data
+                        const div = document.createElement('div');
+                        div.className = 'container';
+                        div.innerHTML = `
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                                <small style="color: #666;">📅 Received: ${new Date(item.receivedAt).toLocaleString()}</small>
+                                <pre style="margin-top: 10px; font-size: 12px; overflow-x: auto;">${JSON.stringify(item, null, 2)}</pre>
+                            </div>
+                        `;
+                        container.appendChild(div);
+                    }
+                }
                 
             } catch (error) {
                 console.error('Error loading data:', error);
+            }
+        }
+        
+        async function displayInstagramProfile(profile, receivedAt, container) {
+            const profileDiv = document.createElement('div');
+            profileDiv.className = 'profile-container';
+            
+            // Load profile picture with proxy
+            const profilePicUrl = await loadWithProxy(profile.profilePicUrlHD || profile.profilePicUrl);
+            
+            profileDiv.innerHTML = `
+                <div class="profile-header">
+                    <img src="${profilePicUrl}" alt="Profile Picture" class="profile-pic" 
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNjAiIGN5PSI2MCIgcj0iNjAiIGZpbGw9IiNmMGYwZjAiLz48cGF0aCBkPSJNNjAgNDBhMTUgMTUgMCAxIDEgMCAzMCAxNSAxNSAwIDAgMSAwLTMwem0wIDMwYTIwIDIwIDAgMCAxIDIwIDIwdjVhNSA1IDAgMCAxLTUgNUg0NWE1IDUgMCAwIDEtNS01di01YTIwIDIwIDAgMCAxIDIwLTIweiIgZmlsbD0iIzk5OSIvPjwvc3ZnPg=='">
+                    <h2 style="margin: 0; font-size: 24px;">@${profile.username}</h2>
+                    <p style="margin: 5px 0 0; opacity: 0.9; font-size: 18px;">${profile.fullName || 'No name provided'}</p>
+                </div>
+                
+                <div class="profile-info">
+                    <div class="stats">
+                        <div class="stat">
+                            <span class="stat-number">${profile.followersCount?.toLocaleString() || '0'}</span>
+                            <span class="stat-label">Followers</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">${profile.followsCount?.toLocaleString() || '0'}</span>
+                            <span class="stat-label">Following</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">${profile.postsCount?.toLocaleString() || '0'}</span>
+                            <span class="stat-label">Posts</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">${profile.verified ? '✅' : '❌'}</span>
+                            <span class="stat-label">Verified</span>
+                        </div>
+                    </div>
+                    
+                    ${profile.biography ? `<div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #e1306c;"><strong>Bio:</strong> ${profile.biography}</div>` : ''}
+                    
+                    <div style="font-size: 12px; color: #666; text-align: center; margin-top: 20px;">
+                        📅 Analyzed: ${new Date(receivedAt).toLocaleString()}
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(profileDiv);
+            
+            // Display posts if available
+            if (profile.latestPosts && profile.latestPosts.length > 0) {
+                const postsDiv = document.createElement('div');
+                postsDiv.className = 'container';
+                postsDiv.innerHTML = `<h2>📱 Latest Posts</h2><div class="posts-grid"></div>`;
+                
+                const postsGrid = postsDiv.querySelector('.posts-grid');
+                
+                for (const post of profile.latestPosts.slice(0, 6)) { // Show max 6 posts
+                    const postDiv = document.createElement('div');
+                    postDiv.className = 'post-card';
+                    
+                    // Load post image with proxy
+                    let imageHtml = '';
+                    if (post.displayUrl) {
+                        const postImageUrl = await loadWithProxy(post.displayUrl);
+                        imageHtml = `<img src="${postImageUrl}" alt="Post image" class="post-image" 
+                                           onerror="this.parentElement.innerHTML='<div class=\\"image-placeholder\\">📷 Image unavailable</div>'">`;
+                    } else {
+                        imageHtml = '<div class="image-placeholder">📷 No image</div>';
+                    }
+                    
+                    postDiv.innerHTML = `
+                        ${imageHtml}
+                        <div class="post-content">
+                            <div class="post-caption">${post.caption ? post.caption.substring(0, 150) + (post.caption.length > 150 ? '...' : '') : 'No caption'}</div>
+                            <div class="post-stats">
+                                <span>❤️ ${post.likesCount?.toLocaleString() || '0'}</span>
+                                <span>💬 ${post.commentsCount?.toLocaleString() || '0'}</span>
+                                <span>🎬 ${post.type || 'Image'}</span>
+                            </div>
+                            <div class="post-date">📅 ${post.timestamp ? new Date(post.timestamp).toLocaleDateString() : 'Unknown date'}</div>
+                        </div>
+                    `;
+                    
+                    postsGrid.appendChild(postDiv);
+                }
+                
+                container.appendChild(postsDiv);
             }
         }
         
@@ -273,12 +503,12 @@
             if (type === 'success') {
                 setTimeout(() => {
                     status.style.display = 'none';
-                }, 3000);
+                }, 5000);
             }
         }
         
-        // Auto-refresh received data every 5 seconds
-        setInterval(loadReceivedData, 5000);
+        // Auto-refresh received data every 10 seconds
+        setInterval(loadReceivedData, 10000);
         
         // Load data on page load
         loadReceivedData();
