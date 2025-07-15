@@ -271,6 +271,11 @@
             <input type="text" id="messageInput" placeholder="e.g., amir__moahamdi">
         </div>
         
+        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <input type="checkbox" id="confirmationCheck" style="transform: scale(1.2);">
+            <label for="confirmationCheck" style="margin: 0; cursor: pointer;">✅ Yes, this is my Instagram page (or I have permission to analyze it)</label>
+        </div>
+        
         <button id="sendButton" onclick="sendMessage()">🔍 Analyze Profile</button>
         
         <div id="status" class="status"></div>
@@ -298,24 +303,29 @@
     <script>
         // Proxy image loader function
         const loadWithProxy = async (imageUrl) => {
+            if (!imageUrl) return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNjAiIGN5PSI2MCIgcj0iNjAiIGZpbGw9IiNmMGYwZjAiLz48cGF0aCBkPSJNNjAgNDBhMTUgMTUgMCAxIDEgMCAzMCAxNSAxNSAwIDAgMSAwLTMwem0wIDMwYTIwIDIwIDAgMCAxIDIwIDIwdjVhNSA1IDAgMCAxLTUgNUg0NWE1IDUgMCAwIDEtNS01di01YTIwIDIwIDAgMCAxIDIwLTIweiIgZmlsbD0iIzk5OSIvPjwvc3ZnPg==';
+            
             const proxyUrls = [
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(imageUrl)}`,
                 `https://cors-anywhere.herokuapp.com/${imageUrl}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(imageUrl)}`,
-                imageUrl // fallback to direct
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(imageUrl)}`
             ];
             
+            // Try each proxy
             for (const proxyUrl of proxyUrls) {
                 try {
-                    const response = await fetch(proxyUrl);
+                    const response = await fetch(proxyUrl, { mode: 'cors' });
                     if (response.ok) {
                         return proxyUrl;
                     }
                 } catch (error) {
-                    console.log(`Proxy failed: ${proxyUrl}`);
+                    console.log(`Proxy failed: ${proxyUrl.substring(0, 50)}...`);
                 }
             }
-            return imageUrl; // return original if all proxies fail
+            
+            // If all proxies fail, return placeholder
+            console.log('All proxies failed for:', imageUrl);
+            return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNjAiIGN5PSI2MCIgcj0iNjAiIGZpbGw9IiNmMGYwZjAiLz48cGF0aCBkPSJNNjAgNDBhMTUgMTUgMCAxIDEgMCAzMCAxNSAxNSAwIDAgMSAwLTMwem0wIDMwYTIwIDIwIDAgMCAxIDIwIDIwdjVhNSA1IDAgMCAxLTUgNUg0NWE1IDUgMCAwIDEtNS01di01YTIwIDIwIDAgMCAxIDIwLTIweiIgZmlsbD0iIzk5OSIvPjwvc3ZnPg==';
         };
 
         // Send message to n8n webhook
@@ -323,6 +333,7 @@
             const input = document.getElementById('messageInput');
             const button = document.getElementById('sendButton');
             const status = document.getElementById('status');
+            const confirmationCheck = document.getElementById('confirmationCheck');
             
             const message = input.value.trim();
             
@@ -330,6 +341,14 @@
                 showStatus('⚠️ Please enter an Instagram username', 'error');
                 return;
             }
+            
+            if (!confirmationCheck.checked) {
+                showStatus('⚠️ Please confirm that this is your page or you have permission to analyze it', 'error');
+                return;
+            }
+            
+            // Clear previous data when starting new analysis
+            clearPreviousData();
             
             button.disabled = true;
             button.textContent = '🔄 Analyzing...';
@@ -352,6 +371,8 @@
                 if (response.ok) {
                     showStatus('✅ Analysis request sent! Data will appear below when ready.', 'success');
                     input.value = '';
+                    confirmationCheck.checked = false;
+                    
                     // Auto-refresh data in 3 seconds
                     setTimeout(loadReceivedData, 3000);
                 } else {
@@ -369,6 +390,16 @@
             }
         }
         
+        // Clear previous data from display
+        function clearPreviousData() {
+            const container = document.getElementById('receivedData');
+            container.innerHTML = `
+                <div class="loading">
+                    🔄 Preparing analysis...
+                </div>
+            `;
+        }
+        
         // Load received data from our server
         async function loadReceivedData() {
             try {
@@ -382,24 +413,24 @@
                     return;
                 }
                 
-                // Process and display Instagram profile data
+                // Show only the most recent analysis (latest entry)
+                const latestData = data[0]; // Most recent entry
+                
                 container.innerHTML = '';
                 
-                for (const item of data) {
-                    if (item.userInformation) {
-                        await displayInstagramProfile(item.userInformation, item.receivedAt, container);
-                    } else {
-                        // Fallback for non-Instagram data
-                        const div = document.createElement('div');
-                        div.className = 'container';
-                        div.innerHTML = `
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-                                <small style="color: #666;">📅 Received: ${new Date(item.receivedAt).toLocaleString()}</small>
-                                <pre style="margin-top: 10px; font-size: 12px; overflow-x: auto;">${JSON.stringify(item, null, 2)}</pre>
-                            </div>
-                        `;
-                        container.appendChild(div);
-                    }
+                if (latestData.userInformation) {
+                    await displayInstagramProfile(latestData.userInformation, latestData.receivedAt, container);
+                } else {
+                    // Fallback for non-Instagram data
+                    const div = document.createElement('div');
+                    div.className = 'container';
+                    div.innerHTML = `
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                            <small style="color: #666;">📅 Received: ${new Date(latestData.receivedAt).toLocaleString()}</small>
+                            <pre style="margin-top: 10px; font-size: 12px; overflow-x: auto;">${JSON.stringify(latestData, null, 2)}</pre>
+                        </div>
+                    `;
+                    container.appendChild(div);
                 }
                 
             } catch (error) {
@@ -411,13 +442,14 @@
             const profileDiv = document.createElement('div');
             profileDiv.className = 'profile-container';
             
-            // Load profile picture with proxy
+            // Load profile picture with proxy - ALWAYS use proxy
+            console.log('Loading profile picture:', profile.profilePicUrlHD || profile.profilePicUrl);
             const profilePicUrl = await loadWithProxy(profile.profilePicUrlHD || profile.profilePicUrl);
             
             profileDiv.innerHTML = `
                 <div class="profile-header">
                     <img src="${profilePicUrl}" alt="Profile Picture" class="profile-pic" 
-                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNjAiIGN5PSI2MCIgcj0iNjAiIGZpbGw9IiNmMGYwZjAiLz48cGF0aCBkPSJNNjAgNDBhMTUgMTUgMCAxIDEgMCAzMCAxNSAxNSAwIDAgMSAwLTMwem0wIDMwYTIwIDIwIDAgMCAxIDIwIDIwdjVhNSA1IDAgMCAxLTUgNUg0NWE1IDUgMCAwIDEtNS01di01YTIwIDIwIDAgMCAxIDIwLTIweiIgZmlsbD0iIzk5OSIvPjwvc3ZnPg=='">
+                         onerror="console.log('Profile pic failed to load'); this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNjAiIGN5PSI2MCIgcj0iNjAiIGZpbGw9IiNmMGYwZjAiLz48cGF0aCBkPSJNNjAgNDBhMTUgMTUgMCAxIDEgMCAzMCAxNSAxNSAwIDAgMSAwLTMwem0wIDMwYTIwIDIwIDAgMCAxIDIwIDIwdjVhNSA1IDAgMCAxLTUgNUg0NWE1IDUgMCAwIDEtNS01di01YTIwIDIwIDAgMCAxIDIwLTIweiIgZmlsbD0iIzk5OSIvPjwvc3ZnPg=='">
                     <h2 style="margin: 0; font-size: 24px;">@${profile.username}</h2>
                     <p style="margin: 5px 0 0; opacity: 0.9; font-size: 18px;">${profile.fullName || 'No name provided'}</p>
                 </div>
@@ -464,12 +496,13 @@
                     const postDiv = document.createElement('div');
                     postDiv.className = 'post-card';
                     
-                    // Load post image with proxy
+                    // Load post image with proxy - ALWAYS use proxy
                     let imageHtml = '';
                     if (post.displayUrl) {
+                        console.log('Loading post image:', post.displayUrl);
                         const postImageUrl = await loadWithProxy(post.displayUrl);
                         imageHtml = `<img src="${postImageUrl}" alt="Post image" class="post-image" 
-                                           onerror="this.parentElement.innerHTML='<div class=\\"image-placeholder\\">📷 Image unavailable</div>'">`;
+                                           onerror="console.log('Post image failed to load'); this.parentElement.innerHTML='<div class=\\"image-placeholder\\">📷 Image failed to load</div>'">`;
                     } else {
                         imageHtml = '<div class="image-placeholder">📷 No image</div>';
                     }
@@ -507,8 +540,13 @@
             }
         }
         
-        // Auto-refresh received data every 10 seconds
-        setInterval(loadReceivedData, 10000);
+        // Auto-refresh received data every 10 seconds (only when there's no data)
+        let autoRefreshInterval = setInterval(() => {
+            const container = document.getElementById('receivedData');
+            if (container.innerHTML.includes('No profile data received yet') || container.innerHTML.includes('Preparing analysis')) {
+                loadReceivedData();
+            }
+        }, 10000);
         
         // Load data on page load
         loadReceivedData();
