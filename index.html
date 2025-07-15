@@ -358,6 +358,9 @@
                 });
                 
                 if (response.ok) {
+                    // Store current username for confirmation tracking
+                    currentUsername = message;
+                    
                     showStatus('✅ Analysis request sent! Data will appear below when ready.', 'success');
                     input.value = '';
                     
@@ -542,7 +545,7 @@
         }
         
         // Function to handle confirmation
-        function confirmAnalysis() {
+        async function confirmAnalysis() {
             const confirmationCheck = document.getElementById('confirmationCheck');
             const confirmButton = document.getElementById('confirmButton');
             
@@ -551,17 +554,55 @@
                 return;
             }
             
-            // Hide confirmation section
-            confirmationCheck.closest('.container').style.display = 'none';
+            // Disable button and show loading
+            confirmButton.disabled = true;
+            confirmButton.textContent = '🔄 Confirming...';
             
-            // Show posts section
-            const postsContainer = document.getElementById('postsContainer');
-            if (postsContainer) {
-                postsContainer.style.display = 'block';
+            try {
+                // Send confirmation to our server (for n8n to read via GET)
+                const response = await fetch('/api/set-confirmation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        confirmed: true,
+                        username: getCurrentUsername(), // We'll need to store this
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                if (response.ok) {
+                    // Hide confirmation section
+                    confirmationCheck.closest('.container').style.display = 'none';
+                    
+                    // Show posts section
+                    const postsContainer = document.getElementById('postsContainer');
+                    if (postsContainer) {
+                        postsContainer.style.display = 'block';
+                    }
+                    
+                    // Show success message
+                    showStatus('✅ Confirmation registered! n8n can now continue the workflow.', 'success');
+                } else {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+            } catch (error) {
+                console.error('Error sending confirmation:', error);
+                showStatus('❌ Error registering confirmation. Please try again.', 'error');
+                
+                // Re-enable button
+                confirmButton.disabled = false;
+                confirmButton.textContent = '✅ Confirm & Continue';
             }
-            
-            // Show success message
-            showStatus('✅ Confirmation received! Full analysis is now visible.', 'success');
+        }
+        
+        // Store current username for confirmation
+        let currentUsername = '';
+        
+        function getCurrentUsername() {
+            return currentUsername;
         }
         
         function showStatus(message, type) {
