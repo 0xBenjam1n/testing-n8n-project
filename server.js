@@ -41,7 +41,7 @@ app.get('/api/received-data', (req, res) => {
     res.json(receivedData);
 });
 
-// NEW: API endpoint for confirmation status (for n8n to check)
+// API endpoint for confirmation status (for n8n to check)
 app.get('/api/confirmation', (req, res) => {
     const username = req.query.username;
     const sessionId = req.query.session_id;
@@ -63,7 +63,7 @@ app.get('/api/confirmation', (req, res) => {
     }
 });
 
-// NEW: API endpoint to set confirmation (from website)
+// API endpoint to set confirmation (from website)
 app.post('/api/set-confirmation', (req, res) => {
     const { username, session_id, confirmed } = req.body;
     const key = username || session_id || 'latest';
@@ -85,11 +85,38 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index3.html'));
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        receivedDataCount: receivedData.length,
+        confirmationCount: Object.keys(confirmationStatus).length
+    });
+});
+
+// Endpoint to clear all data (for testing/debugging)
+app.delete('/api/clear-data', (req, res) => {
+    receivedData = [];
+    confirmationStatus = {};
+    
+    console.log('🗑️ All data cleared');
+    
+    res.json({
+        success: true,
+        message: 'All data cleared successfully'
+    });
+});
+
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 n8n should POST to: /receive-data`);
+    console.log(`🌐 Main page: http://localhost:${PORT}`);
+    console.log(`❤️ Health check: http://localhost:${PORT}/health`);
 });
 
-// Export for Vercel
+// Export for Vercel compatibility
 module.exports = app;
