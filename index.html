@@ -271,11 +271,6 @@
             <input type="text" id="messageInput" placeholder="e.g., amir__moahamdi">
         </div>
         
-        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-            <input type="checkbox" id="confirmationCheck" style="transform: scale(1.2);">
-            <label for="confirmationCheck" style="margin: 0; cursor: pointer;">✅ Yes, this is my Instagram page (or I have permission to analyze it)</label>
-        </div>
-        
         <button id="sendButton" onclick="sendMessage()">🔍 Analyze Profile</button>
         
         <div id="status" class="status"></div>
@@ -333,17 +328,11 @@
             const input = document.getElementById('messageInput');
             const button = document.getElementById('sendButton');
             const status = document.getElementById('status');
-            const confirmationCheck = document.getElementById('confirmationCheck');
             
             const message = input.value.trim();
             
             if (!message) {
                 showStatus('⚠️ Please enter an Instagram username', 'error');
-                return;
-            }
-            
-            if (!confirmationCheck.checked) {
-                showStatus('⚠️ Please confirm that this is your page or you have permission to analyze it', 'error');
                 return;
             }
             
@@ -371,7 +360,6 @@
                 if (response.ok) {
                     showStatus('✅ Analysis request sent! Data will appear below when ready.', 'success');
                     input.value = '';
-                    confirmationCheck.checked = false;
                     
                     // Auto-refresh data in 3 seconds
                     setTimeout(loadReceivedData, 3000);
@@ -484,10 +472,36 @@
             
             container.appendChild(profileDiv);
             
-            // Display posts if available
+            // ADD CONFIRMATION CHECKBOX AFTER PROFILE DATA IS LOADED
+            const confirmationDiv = document.createElement('div');
+            confirmationDiv.className = 'container';
+            confirmationDiv.innerHTML = `
+                <div style="background: linear-gradient(45deg, #ff6b6b, #ee5a24); color: white; padding: 20px; border-radius: 15px; text-align: center;">
+                    <h3 style="margin: 0 0 15px 0; color: white;">⚠️ Confirmation Required</h3>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px;">
+                        <input type="checkbox" id="confirmationCheck" style="transform: scale(1.5);">
+                        <label for="confirmationCheck" style="margin: 0; cursor: pointer; font-weight: bold;">
+                            ✅ Yes, this is my Instagram page (or I have permission to analyze it)
+                        </label>
+                    </div>
+                    <button id="confirmButton" onclick="confirmAnalysis()" 
+                            style="background: white; color: #ff6b6b; padding: 10px 30px; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 16px;">
+                        ✅ Confirm & Continue
+                    </button>
+                    <p style="margin: 15px 0 0 0; font-size: 14px; opacity: 0.9;">
+                        Please confirm this is your page or you have permission before proceeding.
+                    </p>
+                </div>
+            `;
+            
+            container.appendChild(confirmationDiv);
+            
+            // Display posts if available, but hide them initially
             if (profile.latestPosts && profile.latestPosts.length > 0) {
                 const postsDiv = document.createElement('div');
                 postsDiv.className = 'container';
+                postsDiv.id = 'postsContainer';
+                postsDiv.style.display = 'none'; // Hide until confirmed
                 postsDiv.innerHTML = `<h2>📱 Latest Posts</h2><div class="posts-grid"></div>`;
                 
                 const postsGrid = postsDiv.querySelector('.posts-grid');
@@ -525,6 +539,29 @@
                 
                 container.appendChild(postsDiv);
             }
+        }
+        
+        // Function to handle confirmation
+        function confirmAnalysis() {
+            const confirmationCheck = document.getElementById('confirmationCheck');
+            const confirmButton = document.getElementById('confirmButton');
+            
+            if (!confirmationCheck.checked) {
+                alert('⚠️ Please check the confirmation box first!');
+                return;
+            }
+            
+            // Hide confirmation section
+            confirmationCheck.closest('.container').style.display = 'none';
+            
+            // Show posts section
+            const postsContainer = document.getElementById('postsContainer');
+            if (postsContainer) {
+                postsContainer.style.display = 'block';
+            }
+            
+            // Show success message
+            showStatus('✅ Confirmation received! Full analysis is now visible.', 'success');
         }
         
         function showStatus(message, type) {
