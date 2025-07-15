@@ -9,6 +9,7 @@ app.use(express.static(__dirname)); // Serve static files from current directory
 
 // Store received data in memory (for demo purposes)
 let receivedData = [];
+let confirmationStatus = {}; // Store confirmation status by session/username
 
 // Endpoint to receive data from n8n
 app.post('/receive-data', (req, res) => {
@@ -38,6 +39,45 @@ app.post('/receive-data', (req, res) => {
 // API endpoint to get received data (for real-time updates)
 app.get('/api/received-data', (req, res) => {
     res.json(receivedData);
+});
+
+// NEW: API endpoint for confirmation status (for n8n to check)
+app.get('/api/confirmation', (req, res) => {
+    const username = req.query.username;
+    const sessionId = req.query.session_id;
+    
+    // Check if confirmation exists
+    const key = username || sessionId || 'latest';
+    const isConfirmed = confirmationStatus[key] || false;
+    
+    res.json({
+        confirmed: isConfirmed,
+        username: username,
+        session_id: sessionId,
+        timestamp: new Date().toISOString()
+    });
+    
+    // Optional: Clear confirmation after n8n reads it
+    if (isConfirmed) {
+        delete confirmationStatus[key];
+    }
+});
+
+// NEW: API endpoint to set confirmation (from website)
+app.post('/api/set-confirmation', (req, res) => {
+    const { username, session_id, confirmed } = req.body;
+    const key = username || session_id || 'latest';
+    
+    confirmationStatus[key] = confirmed;
+    
+    console.log(`📝 Confirmation set for ${key}:`, confirmed);
+    
+    res.json({
+        success: true,
+        message: 'Confirmation status updated',
+        key: key,
+        confirmed: confirmed
+    });
 });
 
 // Serve the main HTML page
