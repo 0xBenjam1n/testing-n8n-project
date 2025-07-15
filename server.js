@@ -41,7 +41,7 @@ app.get('/api/received-data', (req, res) => {
     res.json(receivedData);
 });
 
-// API endpoint for confirmation status (for n8n to check)
+// API endpoint for confirmation status (for n8n to check via polling - backup method)
 app.get('/api/confirmation', (req, res) => {
     const username = req.query.username;
     const sessionId = req.query.session_id;
@@ -57,13 +57,13 @@ app.get('/api/confirmation', (req, res) => {
         timestamp: new Date().toISOString()
     });
     
-    // Optional: Clear confirmation after n8n reads it
+    // Optional: Clear confirmation after reading
     if (isConfirmed) {
         delete confirmationStatus[key];
     }
 });
 
-// API endpoint to set confirmation (from website)
+// API endpoint to set confirmation (backup method - not used with direct webhook)
 app.post('/api/set-confirmation', (req, res) => {
     const { username, session_id, confirmed } = req.body;
     const key = username || session_id || 'latest';
@@ -93,7 +93,15 @@ app.get('/health', (req, res) => {
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         receivedDataCount: receivedData.length,
-        confirmationCount: Object.keys(confirmationStatus).length
+        confirmationCount: Object.keys(confirmationStatus).length,
+        endpoints: {
+            main: '/',
+            receiveData: '/receive-data',
+            apiData: '/api/received-data',
+            confirmation: '/api/confirmation',
+            setConfirmation: '/api/set-confirmation',
+            health: '/health'
+        }
     });
 });
 
@@ -106,7 +114,39 @@ app.delete('/api/clear-data', (req, res) => {
     
     res.json({
         success: true,
-        message: 'All data cleared successfully'
+        message: 'All data cleared successfully',
+        clearedItems: {
+            receivedData: 'cleared',
+            confirmationStatus: 'cleared'
+        }
+    });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('❌ Server Error:', err.stack);
+    res.status(500).json({
+        error: 'Something went wrong!',
+        message: err.message,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Handle 404 errors
+app.use((req, res) => {
+    res.status(404).json({
+        error: 'Not Found',
+        message: `Cannot ${req.method} ${req.url}`,
+        availableEndpoints: [
+            'GET /',
+            'POST /receive-data',
+            'GET /api/received-data',
+            'GET /api/confirmation',
+            'POST /api/set-confirmation',
+            'GET /health',
+            'DELETE /api/clear-data'
+        ],
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -116,7 +156,26 @@ app.listen(PORT, () => {
     console.log(`📡 n8n should POST to: /receive-data`);
     console.log(`🌐 Main page: http://localhost:${PORT}`);
     console.log(`❤️ Health check: http://localhost:${PORT}/health`);
+    console.log(`🔧 Available endpoints:`);
+    console.log(`   GET  / - Main webpage`);
+    console.log(`   POST /receive-data - Receive Instagram data from n8n`);
+    console.log(`   GET  /api/received-data - Get stored data`);
+    console.log(`   GET  /api/confirmation - Check confirmation status`);
+    console.log(`   POST /api/set-confirmation - Set confirmation status`);
+    console.log(`   GET  /health - Server health and stats`);
+    console.log(`   DELETE /api/clear-data - Clear all stored data`);
 });
 
-// Export for Vercel compatibility
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('🛑 SIGTERM received, shutting down gracefully');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('🛑 SIGINT received, shutting down gracefully');
+    process.exit(0);
+});
+
+// Export for Vercel/Railway compatibility
 module.exports = app;
