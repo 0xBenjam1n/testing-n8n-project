@@ -559,16 +559,18 @@
             confirmButton.textContent = '🔄 Confirming...';
             
             try {
-                // Send confirmation to our server (for n8n to read via GET)
-                const response = await fetch('/api/set-confirmation', {
+                // Trigger the second n8n workflow
+                const response = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/5d941b6b-f91c-4c90-94f9-ee0ce7bc89c6', {
                     method: 'POST',
+                    mode: 'cors',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
                         confirmed: true,
-                        username: getCurrentUsername(), // We'll need to store this
-                        timestamp: new Date().toISOString()
+                        username: getCurrentUsername(),
+                        confirmation_time: new Date().toISOString(),
+                        message: 'User confirmed ownership/permission of Instagram account'
                     })
                 });
                 
@@ -583,14 +585,14 @@
                     }
                     
                     // Show success message
-                    showStatus('✅ Confirmation registered! n8n can now continue the workflow.', 'success');
+                    showStatus('✅ Confirmation sent! Your request is being processed.', 'success');
                 } else {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
             } catch (error) {
                 console.error('Error sending confirmation:', error);
-                showStatus('❌ Error registering confirmation. Please try again.', 'error');
+                showStatus('❌ Error sending confirmation. Please try again.', 'error');
                 
                 // Re-enable button
                 confirmButton.disabled = false;
