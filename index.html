@@ -727,6 +727,7 @@
                 return;
             }
             
+            const originalText = button.textContent;
             button.disabled = true;
             button.textContent = '🔄 Confirming...';
             
@@ -746,8 +747,17 @@
                 });
                 
                 if (response.ok) {
-                    // Hide confirmation section
-                    document.getElementById('confirmationSection').style.display = 'none';
+                    // Keep confirmation section visible, just add success message
+                    const confirmationSection = document.getElementById('confirmationSection');
+                    const existingContent = confirmationSection.innerHTML;
+                    
+                    // Add success message below the confirmation form
+                    confirmationSection.innerHTML = existingContent + `
+                        <div style="background: linear-gradient(45deg, #28a745, #20c997); color: white; padding: 15px; border-radius: 12px; margin-top: 20px; text-align: center;">
+                            <strong>✅ Confirmation Sent Successfully!</strong>
+                            <br><small>You can test again by clicking the button above</small>
+                        </div>
+                    `;
                     
                     // Show options form
                     showOptionsForm();
@@ -760,8 +770,13 @@
             } catch (error) {
                 console.error('Error sending confirmation:', error);
                 showStatus('❌ Error sending confirmation. Please try again.', 'error');
+            } finally {
+                // Re-enable button for testing
                 button.disabled = false;
-                button.textContent = '✅ Confirm & Continue';
+                button.textContent = originalText;
+                
+                // Uncheck the checkbox for next test
+                checkbox.checked = false;
             }
         }
         
