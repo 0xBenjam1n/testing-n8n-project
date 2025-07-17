@@ -324,15 +324,115 @@
             cursor: not-allowed;
         }
         
-        .image-placeholder {
-            width: 100%;
-            height: 200px;
-            background: linear-gradient(45deg, #f0f0f0, #e0e0e0);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
+        .form-page {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .form-page h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        .form-page p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .option-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+        }
+        
+        .option-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .option-card.selected {
+            border-color: #ffd700;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        
+        .option-card input[type="checkbox"] {
+            margin-bottom: 15px;
+            transform: scale(1.5);
+            accent-color: #ffd700;
+        }
+        
+        .option-card h3 {
+            margin: 15px 0 10px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        
+        .option-card p {
+            margin: 0;
+            color: rgba(255,255,255,0.9);
             font-size: 14px;
+        }
+        
+        .submit-section {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #f1f3f4;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 16px 40px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 10px;
+        }
+        
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+        }
+        
+        .submit-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .skip-btn {
+            background: transparent;
+            color: #6c757d;
+            border: 2px solid #6c757d;
+        }
+        
+        .skip-btn:hover:not(:disabled) {
+            background: #6c757d;
+            color: white;
         }
         
         .loading {
@@ -404,6 +504,7 @@
             <div class="results-section" id="resultsSection" style="display: none;">
                 <div id="profileData"></div>
                 <div id="confirmationSection"></div>
+                <div id="optionsForm"></div>
                 <div id="postsData"></div>
             </div>
         </div>
@@ -645,13 +746,13 @@
                 });
                 
                 if (response.ok) {
-                    document.getElementById('confirmationSection').innerHTML = `
-                        <div style="background: linear-gradient(45deg, #28a745, #20c997); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-                            <h3>✅ Confirmation Sent!</h3>
-                            <p>Your request is being processed in the background.</p>
-                        </div>
-                    `;
-                    showStatus('✅ Confirmation successful! Your request is being processed.', 'success');
+                    // Hide confirmation section
+                    document.getElementById('confirmationSection').style.display = 'none';
+                    
+                    // Show options form
+                    showOptionsForm();
+                    
+                    showStatus('✅ Confirmation successful! Please select your preferences below.', 'success');
                 } else {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -662,6 +763,124 @@
                 button.disabled = false;
                 button.textContent = '✅ Confirm & Continue';
             }
+        }
+        
+        // Show options form
+        function showOptionsForm() {
+            const optionsContainer = document.getElementById('optionsForm');
+            
+            optionsContainer.innerHTML = `
+                <div class="form-page">
+                    <h2>📋 Select Your Preferences</h2>
+                    <p>Choose what additional data you'd like to retrieve for this Instagram profile:</p>
+                    
+                    <div class="options-grid">
+                        <div class="option-card" onclick="toggleOption('posts')">
+                            <input type="checkbox" id="postsCheck" onchange="updateCard('posts')">
+                            <h3>📱 Posts</h3>
+                            <p>Get detailed information about the latest posts including images, captions, likes, and comments</p>
+                        </div>
+                        
+                        <div class="option-card" onclick="toggleOption('highlights')">
+                            <input type="checkbox" id="highlightsCheck" onchange="updateCard('highlights')">
+                            <h3>✨ Highlights</h3>
+                            <p>Retrieve profile highlights and story archives if available</p>
+                        </div>
+                    </div>
+                    
+                    <div class="submit-section">
+                        <button class="submit-btn" onclick="submitPreferences()">🚀 Submit Preferences</button>
+                        <button class="submit-btn skip-btn" onclick="skipPreferences()">⏭️ Skip</button>
+                    </div>
+                    
+                    <p style="margin-top: 20px; color: #666; font-size: 14px;">
+                        You can skip this step if you only need basic profile information.
+                    </p>
+                </div>
+            `;
+        }
+        
+        // Toggle option
+        function toggleOption(option) {
+            const checkbox = document.getElementById(option + 'Check');
+            checkbox.checked = !checkbox.checked;
+            updateCard(option);
+        }
+        
+        // Update card appearance
+        function updateCard(option) {
+            const card = document.getElementById(option + 'Check').closest('.option-card');
+            const checkbox = document.getElementById(option + 'Check');
+            
+            if (checkbox.checked) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+        }
+        
+        // Submit preferences
+        async function submitPreferences() {
+            const postsChecked = document.getElementById('postsCheck').checked;
+            const highlightsChecked = document.getElementById('highlightsCheck').checked;
+            const submitBtn = document.querySelector('.submit-btn:not(.skip-btn)');
+            
+            if (!postsChecked && !highlightsChecked) {
+                alert('⚠️ Please select at least one option or click Skip to continue.');
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = '🔄 Processing...';
+            
+            try {
+                const response = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/d440957e-80e2-4a20-a490-562f89226266', {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'preferences_selected',
+                        username: currentUsername,
+                        preferences: {
+                            posts: postsChecked,
+                            highlights: highlightsChecked
+                        },
+                        timestamp: new Date().toISOString(),
+                        message: 'User selected additional data preferences'
+                    })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('optionsForm').innerHTML = `
+                        <div style="background: linear-gradient(45deg, #28a745, #20c997); color: white; padding: 30px; border-radius: 20px; text-align: center;">
+                            <h2>✅ Preferences Submitted!</h2>
+                            <p style="margin: 0; font-size: 16px;">Your request is being processed. Additional data will be retrieved based on your selections.</p>
+                        </div>
+                    `;
+                    showStatus('✅ Preferences submitted successfully!', 'success');
+                } else {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+            } catch (error) {
+                console.error('Error submitting preferences:', error);
+                showStatus('❌ Error submitting preferences. Please try again.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Submit Preferences';
+            }
+        }
+        
+        // Skip preferences
+        function skipPreferences() {
+            document.getElementById('optionsForm').innerHTML = `
+                <div style="background: linear-gradient(45deg, #6c757d, #495057); color: white; padding: 30px; border-radius: 20px; text-align: center;">
+                    <h2>⏭️ Preferences Skipped</h2>
+                    <p style="margin: 0; font-size: 16px;">Basic profile analysis completed. No additional data will be retrieved.</p>
+                </div>
+            `;
+            showStatus('✅ Analysis completed with basic profile information.', 'success');
         }
         
         // Show status message
