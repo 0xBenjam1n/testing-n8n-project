@@ -477,36 +477,10 @@
             
             container.appendChild(profileDiv);
             
-            // ADD CONFIRMATION CHECKBOX AFTER PROFILE DATA IS LOADED
-            const confirmationDiv = document.createElement('div');
-            confirmationDiv.className = 'container';
-            confirmationDiv.innerHTML = `
-                <div style="background: linear-gradient(45deg, #ff6b6b, #ee5a24); color: white; padding: 20px; border-radius: 15px; text-align: center;">
-                    <h3 style="margin: 0 0 15px 0; color: white;">⚠️ Confirmation Required</h3>
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px;">
-                        <input type="checkbox" id="confirmationCheck" style="transform: scale(1.5);">
-                        <label for="confirmationCheck" style="margin: 0; cursor: pointer; font-weight: bold;">
-                            ✅ Yes, this is my Instagram page (or I have permission to analyze it)
-                        </label>
-                    </div>
-                    <button id="confirmButton" onclick="confirmAnalysis()" 
-                            style="background: white; color: #ff6b6b; padding: 10px 30px; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 16px;">
-                        ✅ Confirm & Continue
-                    </button>
-                    <p style="margin: 15px 0 0 0; font-size: 14px; opacity: 0.9;">
-                        Please confirm this is your page or you have permission before proceeding.
-                    </p>
-                </div>
-            `;
-            
-            container.appendChild(confirmationDiv);
-            
-            // Display posts if available, but hide them initially
+            // Display posts immediately (no confirmation needed)
             if (profile.latestPosts && profile.latestPosts.length > 0) {
                 const postsDiv = document.createElement('div');
                 postsDiv.className = 'container';
-                postsDiv.id = 'postsContainer';
-                postsDiv.style.display = 'none'; // Hide until confirmed
                 postsDiv.innerHTML = `<h2>📱 Latest Posts</h2><div class="posts-grid"></div>`;
                 
                 const postsGrid = postsDiv.querySelector('.posts-grid');
@@ -544,6 +518,30 @@
                 
                 container.appendChild(postsDiv);
             }
+            
+            // ADD CONFIRMATION SECTION AFTER POSTS
+            const confirmationDiv = document.createElement('div');
+            confirmationDiv.className = 'container';
+            confirmationDiv.innerHTML = `
+                <div style="background: linear-gradient(45deg, #ff6b6b, #ee5a24); color: white; padding: 20px; border-radius: 15px; text-align: center;">
+                    <h3 style="margin: 0 0 15px 0; color: white;">⚠️ Confirmation Required</h3>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px;">
+                        <input type="checkbox" id="confirmationCheck" style="transform: scale(1.5);">
+                        <label for="confirmationCheck" style="margin: 0; cursor: pointer; font-weight: bold;">
+                            ✅ Yes, this is my Instagram page (or I have permission to analyze it)
+                        </label>
+                    </div>
+                    <button id="confirmButton" onclick="confirmAnalysis()" 
+                            style="background: white; color: #ff6b6b; padding: 10px 30px; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 16px;">
+                        ✅ Confirm & Continue
+                    </button>
+                    <p style="margin: 15px 0 0 0; font-size: 14px; opacity: 0.9;">
+                        Please confirm this is your page or you have permission to proceed with further actions.
+                    </p>
+                </div>
+            `;
+            
+            container.appendChild(confirmationDiv);
         }
         
         // Function to handle confirmation
@@ -580,14 +578,8 @@
                     // Hide confirmation section
                     confirmationCheck.closest('.container').style.display = 'none';
                     
-                    // Show posts section
-                    const postsContainer = document.getElementById('postsContainer');
-                    if (postsContainer) {
-                        postsContainer.style.display = 'block';
-                    }
-                    
                     // Show success message
-                    showStatus('✅ Confirmation sent! Your request is being processed.', 'success');
+                    showStatus('✅ Confirmation sent! Your request is being processed in the background.', 'success');
                 } else {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
