@@ -272,6 +272,10 @@
             text-align: center;
             padding: 40px;
             color: #666;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
         
         .loading-spinner-main {
@@ -281,22 +285,25 @@
             border-top: 4px solid #e1306c;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            margin-bottom: 20px;
+            flex-shrink: 0;
         }
         
         .loading-text {
             font-size: 16px;
             margin-bottom: 10px;
+            text-align: center;
         }
         
         .loading-subtext {
             font-size: 14px;
             opacity: 0.7;
+            text-align: center;
         }
         
         .confirmation-section {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
             border-radius: 8px;
             padding: 20px;
             margin: 20px 0;
@@ -486,14 +493,14 @@
                          class="profile-pic"
                          crossorigin="anonymous"
                          onload="this.style.opacity='1'"
-                         onerror="this.parentElement.innerHTML='<div class=\\"profile-pic-fallback\\">👤</div>'"
+                         onerror="this.parentElement.innerHTML='<div class=&quot;profile-pic-fallback&quot;>👤</div>'"
                          style="opacity:0; transition: opacity 0.3s;">
                 `;
             }
             
             static showFallback(container) {
                 const colors = ['#e53e3e', '#3182ce', '#38a169', '#d69e2e', '#805ad5', '#d53f8c'];
-                const bgColor = colors[Math.abs(imageUrl?.charCodeAt(0) || 0) % colors.length];
+                const bgColor = colors[Math.floor(Math.random() * colors.length)];
                 container.innerHTML = `<div class="profile-pic-fallback" style="background-color: ${bgColor};">👤</div>`;
             }
         }
@@ -644,8 +651,6 @@
                 </div>
                 
                 <div class="confirmation-section">
-                    <h3>⚠️ Ownership Confirmation</h3>
-                    <p>Please confirm that this is your Instagram account or you have permission to analyze it.</p>
                     <div class="checkbox-container">
                         <input type="checkbox" id="ownershipCheck">
                         <label for="ownershipCheck">Yes, this is my page</label>
