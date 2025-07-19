@@ -881,6 +881,8 @@
                     posts: postsSelected ? (currentProfile.postsCount || 0) : 0,
                     highlights: highlightsSelected ? (currentProfile.highlightReelCount || 0) : 0
                 },
+                // Check if both options are selected
+                bothContentTypesSelected: postsSelected && highlightsSelected,
                 // Metadata
                 timestamp: new Date().toISOString(),
                 confirmed: true
