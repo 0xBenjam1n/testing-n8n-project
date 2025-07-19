@@ -285,8 +285,78 @@
         
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 40px;
             color: #666;
+        }
+        
+        .loading-spinner-main {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #e1306c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        .loading-text {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .loading-subtext {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+        
+        .confirmation-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .checkbox-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-container label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: normal;
+            color: #333;
+        }
+        
+        .confirm-btn {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .confirm-btn:hover:not(:disabled) {
+            background: #218838;
+        }
+        
+        .confirm-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
         }
         
         .section-title {
@@ -469,8 +539,9 @@
             // Show loading
             document.getElementById('dataDisplay').innerHTML = `
                 <div class="loading">
-                    <div style="width: 30px; height: 30px; border: 3px solid #f3f3f3; border-top: 3px solid #e1306c; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
-                    <p>Analyzing @${username}...</p>
+                    <div class="loading-spinner-main"></div>
+                    <div class="loading-text">Analyzing @${username}</div>
+                    <div class="loading-subtext">Please wait while we fetch the profile data...</div>
                 </div>
             `;
             
@@ -576,10 +647,6 @@
                     <div class="info-card">
                         <h3>📺 Content Stats</h3>
                         <div class="info-item">
-                            <span class="info-label">Posts:</span>
-                            <span class="info-value">${(profile.postsCount || 0).toLocaleString()}</span>
-                        </div>
-                        <div class="info-item">
                             <span class="info-label">Highlights:</span>
                             <span class="info-value">${profile.highlightReelCount || 0}</span>
                         </div>
@@ -587,13 +654,29 @@
                             <span class="info-label">IGTV Videos:</span>
                             <span class="info-value">${profile.igtvVideoCount || 0}</span>
                         </div>
+                        <div class="info-item">
+                            <span class="info-label">Has Channel:</span>
+                            <span class="info-value">
+                                <span class="badge ${profile.hasChannel ? 'yes' : 'no'}">${profile.hasChannel ? 'Yes' : 'No'}</span>
+                            </span>
+                        </div>
                     </div>
+                </div>
+                
+                <div class="confirmation-section">
+                    <h3>⚠️ Ownership Confirmation</h3>
+                    <p>Please confirm that this is your Instagram account or you have permission to analyze it.</p>
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="ownershipCheck">
+                        <label for="ownershipCheck">Yes, this is my page</label>
+                    </div>
+                    <button class="confirm-btn" onclick="confirmOwnership()">✅ Confirm</button>
                 </div>
             `;
             
-            // Load profile picture asynchronously
+            // Load profile picture using the proper method
             const container = document.getElementById('profilePicContainer');
-            ImageLoader.loadImage(profile.profilePicUrlHD || profile.profilePicUrl, container);
+            UniversalImageLoader.loadImage(profile.profilePicUrlHD || profile.profilePicUrl, container);
         }
         
         // Show status message
