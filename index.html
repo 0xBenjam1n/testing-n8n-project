@@ -127,6 +127,127 @@
             border-top: 2px solid #f0f0f0;
         }
         
+        .profile-card {
+            background: linear-gradient(135deg, #e1306c, #c13584);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .profile-pic {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 3px solid white;
+            margin: 0 auto 20px;
+            display: block;
+            object-fit: cover;
+        }
+        
+        .profile-name {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .profile-username {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat {
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .stat-number {
+            display: block;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+        
+        .bio {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .info-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .info-card h3 {
+            margin: 0 0 15px 0;
+            color: #e1306c;
+            font-size: 16px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 8px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 5px 0;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .info-value {
+            color: #333;
+            text-align: right;
+            flex: 1;
+            margin-left: 10px;
+        }
+        
+        .badge {
+            background: #28a745;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .badge.no {
+            background: #dc3545;
+        }
+        
         .json-display {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
@@ -293,12 +414,181 @@
         function displayResults(data) {
             const dataContainer = document.getElementById('dataDisplay');
             
+            if (data.userInformation) {
+                const profile = data.userInformation;
+                displayProfile(profile);
+            } else {
+                dataContainer.innerHTML = `
+                    <div class="json-display">
+                        <strong>📄 Raw JSON Response:</strong>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            }
+        }
+        
+        // Display profile in organized format
+        function displayProfile(profile) {
+            const dataContainer = document.getElementById('dataDisplay');
+            
             dataContainer.innerHTML = `
-                <div class="json-display">
-                    <strong>📄 Raw JSON Response:</strong>
-                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                <div class="profile-card">
+                    <img src="${profile.profilePicUrlHD || profile.profilePicUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNTAiIGZpbGw9IiNmMGYwZjAiLz48L3N2Zz4='}" alt="Profile Picture" class="profile-pic">
+                    <div class="profile-name">${profile.fullName || 'No name provided'}</div>
+                    <div class="profile-username">@${profile.username}</div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat">
+                            <span class="stat-number">${(profile.followersCount || 0).toLocaleString()}</span>
+                            <span class="stat-label">Followers</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">${(profile.followsCount || 0).toLocaleString()}</span>
+                            <span class="stat-label">Following</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">${(profile.postsCount || 0).toLocaleString()}</span>
+                            <span class="stat-label">Posts</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">${profile.verified ? '✅' : '❌'}</span>
+                            <span class="stat-label">Verified</span>
+                        </div>
+                    </div>
+                    
+                    ${profile.biography ? `<div class="bio"><strong>Bio:</strong><br>${profile.biography}</div>` : ''}
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h3>📊 Account Information</h3>
+                        <div class="info-item">
+                            <span class="info-label">Profile ID:</span>
+                            <span class="info-value">${profile.id || 'N/A'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Account Type:</span>
+                            <span class="info-value">${profile.isBusinessAccount ? 'Business' : 'Personal'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Private Account:</span>
+                            <span class="info-value">
+                                <span class="badge ${profile.private ? 'yes' : 'no'}">${profile.private ? 'Yes' : 'No'}</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Verified:</span>
+                            <span class="info-value">
+                                <span class="badge ${profile.verified ? 'yes' : 'no'}">${profile.verified ? 'Yes' : 'No'}</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Recently Joined:</span>
+                            <span class="info-value">
+                                <span class="badge ${profile.joinedRecently ? 'yes' : 'no'}">${profile.joinedRecently ? 'Yes' : 'No'}</span>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h3>📺 Content Information</h3>
+                        <div class="info-item">
+                            <span class="info-label">Posts:</span>
+                            <span class="info-value">${(profile.postsCount || 0).toLocaleString()}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">IGTV Videos:</span>
+                            <span class="info-value">${profile.igtvVideoCount || 0}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Highlights:</span>
+                            <span class="info-value">${profile.highlightReelCount || 0}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Has Channel:</span>
+                            <span class="info-value">
+                                <span class="badge ${profile.hasChannel ? 'yes' : 'no'}">${profile.hasChannel ? 'Yes' : 'No'}</span>
+                            </span>
+                        </div>
+                        ${profile.businessCategoryName ? `
+                        <div class="info-item">
+                            <span class="info-label">Business Category:</span>
+                            <span class="info-value">${profile.businessCategoryName}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="info-card">
+                        <h3>🔗 Links & URLs</h3>
+                        <div class="info-item">
+                            <span class="info-label">Profile URL:</span>
+                            <span class="info-value">
+                                <a href="${profile.url}" target="_blank" style="color: #e1306c; text-decoration: none;">
+                                    ${profile.url}
+                                </a>
+                            </span>
+                        </div>
+                        ${profile.externalUrls && profile.externalUrls.length > 0 ? `
+                        <div class="info-item">
+                            <span class="info-label">External Links:</span>
+                            <span class="info-value">
+                                ${profile.externalUrls.map(url => `<a href="${url}" target="_blank" style="color: #e1306c; text-decoration: none; display: block;">${url}</a>`).join('')}
+                            </span>
+                        </div>
+                        ` : `
+                        <div class="info-item">
+                            <span class="info-label">External Links:</span>
+                            <span class="info-value">None</span>
+                        </div>
+                        `}
+                        ${profile.fbid ? `
+                        <div class="info-item">
+                            <span class="info-label">Facebook ID:</span>
+                            <span class="info-value">${profile.fbid}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="info-card">
+                        <h3>📷 Profile Images</h3>
+                        <div class="info-item">
+                            <span class="info-label">Standard Profile Pic:</span>
+                            <span class="info-value">
+                                ${profile.profilePicUrl ? `<a href="${profile.profilePicUrl}" target="_blank" style="color: #e1306c;">View Image</a>` : 'N/A'}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">HD Profile Pic:</span>
+                            <span class="info-value">
+                                ${profile.profilePicUrlHD ? `<a href="${profile.profilePicUrlHD}" target="_blank" style="color: #e1306c;">View HD Image</a>` : 'N/A'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; text-align: center;">
+                    <button onclick="toggleRawData()" class="btn" style="width: auto; padding: 8px 16px; font-size: 14px;">
+                        📄 Show/Hide Raw JSON Data
+                    </button>
+                </div>
+                
+                <div id="rawJsonData" style="display: none;">
+                    <div class="json-display">
+                        <strong>📄 Raw JSON Response:</strong>
+                        <pre>${JSON.stringify(profile, null, 2)}</pre>
+                    </div>
                 </div>
             `;
+        }
+        
+        // Toggle raw JSON data
+        function toggleRawData() {
+            const rawData = document.getElementById('rawJsonData');
+            if (rawData.style.display === 'none') {
+                rawData.style.display = 'block';
+            } else {
+                rawData.style.display = 'none';
+            }
         }
         
         // Show status message
