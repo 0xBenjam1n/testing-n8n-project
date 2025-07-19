@@ -281,10 +281,11 @@
         .loading-spinner {
             width: 20px;
             height: 20px;
-            border: 2px solid #e1306c;
+            border: 2px solid white;
             border-top: transparent;
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin-bottom: 15px;
         }
         
         .loading-text {
@@ -525,8 +526,10 @@
             
             // Show loading
             document.getElementById('dataDisplay').innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <div class="loading-spinner" style="margin: 0 auto;"></div>
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Analyzing @${username}</div>
+                    <div class="loading-subtext">Please wait while we fetch the profile data...</div>
                 </div>
             `;
             
