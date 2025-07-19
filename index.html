@@ -334,12 +334,14 @@
         .confirm-btn {
             background: #28a745;
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
         }
         
         .confirm-btn:hover:not(:disabled) {
@@ -655,7 +657,7 @@
                         <input type="checkbox" id="ownershipCheck">
                         <label for="ownershipCheck">Yes, this is my page</label>
                     </div>
-                    <button class="confirm-btn" onclick="confirmOwnership()">✅ Confirm</button>
+                    <button class="confirm-btn" onclick="confirmOwnership()">Confirm</button>
                 </div>
             `;
             
@@ -687,17 +689,17 @@
             }
             
             button.disabled = true;
-            button.textContent = '🔄 Confirming...';
+            button.textContent = 'Confirming...';
             
             setTimeout(() => {
-                button.textContent = '✅ Confirmed!';
+                button.textContent = 'Confirmed!';
                 button.style.background = '#28a745';
                 showStatus('✅ Ownership confirmed successfully!', 'success');
                 
                 // Re-enable after 2 seconds for testing
                 setTimeout(() => {
                     button.disabled = false;
-                    button.textContent = '✅ Confirm';
+                    button.textContent = 'Confirm';
                     checkbox.checked = false;
                 }, 2000);
             }, 1000);
