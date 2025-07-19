@@ -204,7 +204,22 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                const data = await response.json();
+                // Check if response has content before parsing JSON
+                const responseText = await response.text();
+                let data = null;
+                
+                if (responseText.trim()) {
+                    try {
+                        data = JSON.parse(responseText);
+                    } catch (parseError) {
+                        console.log('Response is not JSON:', responseText);
+                        data = { message: 'Success', response: responseText };
+                    }
+                } else {
+                    console.log('Empty response received');
+                    data = { message: 'Success - no response data' };
+                }
+
                 return { success: true, data };
             } catch (error) {
                 return { success: false, error: error.message };
