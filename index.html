@@ -279,13 +279,16 @@
         }
         
         .loading-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             width: 20px;
             height: 20px;
-            border: 2px solid white;
+            border: 2px solid #e1306c;
             border-top: transparent;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-bottom: 15px;
         }
         
         .loading-text {
@@ -526,10 +529,8 @@
             
             // Show loading
             document.getElementById('dataDisplay').innerHTML = `
-                <div class="loading">
+                <div style="position: relative; height: 100px; display: flex; align-items: center; justify-content: center;">
                     <div class="loading-spinner"></div>
-                    <div class="loading-text">Analyzing @${username}</div>
-                    <div class="loading-subtext">Please wait while we fetch the profile data...</div>
                 </div>
             `;
             
