@@ -883,6 +883,10 @@
                 },
                 // Check if both options are selected
                 bothContentTypesSelected: postsSelected && highlightsSelected,
+                // Single content type selection
+                singleContentType: postsSelected && highlightsSelected ? null : 
+                                  postsSelected ? 'posts' : 
+                                  highlightsSelected ? 'highlights' : null,
                 // Metadata
                 timestamp: new Date().toISOString(),
                 confirmed: true
