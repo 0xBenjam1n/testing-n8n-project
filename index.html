@@ -105,22 +105,7 @@
             border: 1px solid #f5c6cb;
         }
         
-        .endpoint-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-        
-        .endpoint-info code {
-            background: #e9ecef;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: monospace;
-            word-break: break-all;
-        }
-        
+
         .results-section {
             margin-top: 30px;
             padding-top: 20px;
@@ -384,7 +369,7 @@
             </button>
             
             <div id="status" class="status"></div>
-        
+            
             <div class="results-section" id="resultsSection" style="display: none;">
                 <h2 class="section-title">📊 Analysis Results</h2>
                 <div id="dataDisplay"></div>
@@ -684,6 +669,33 @@
             if (type === 'success') {
                 setTimeout(() => status.style.display = 'none', 5000);
             }
+        }
+        
+        // Confirm ownership
+        function confirmOwnership() {
+            const checkbox = document.getElementById('ownershipCheck');
+            const button = document.querySelector('.confirm-btn');
+            
+            if (!checkbox.checked) {
+                alert('⚠️ Please check the confirmation box first!');
+                return;
+            }
+            
+            button.disabled = true;
+            button.textContent = '🔄 Confirming...';
+            
+            setTimeout(() => {
+                button.textContent = '✅ Confirmed!';
+                button.style.background = '#28a745';
+                showStatus('✅ Ownership confirmed successfully!', 'success');
+                
+                // Re-enable after 2 seconds for testing
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.textContent = '✅ Confirm';
+                    checkbox.checked = false;
+                }, 2000);
+            }, 1000);
         }
         
         // Enter key support
