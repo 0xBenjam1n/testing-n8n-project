@@ -566,29 +566,8 @@
                     </div>
                 </div>
                 
-                <div style="margin-top: 20px; text-align: center;">
-                    <button onclick="toggleRawData()" class="btn" style="width: auto; padding: 8px 16px; font-size: 14px;">
-                        📄 Show/Hide Raw JSON Data
-                    </button>
-                </div>
-                
-                <div id="rawJsonData" style="display: none;">
-                    <div class="json-display">
-                        <strong>📄 Raw JSON Response:</strong>
-                        <pre>${JSON.stringify(profile, null, 2)}</pre>
-                    </div>
-                </div>
+
             `;
-        }
-        
-        // Toggle raw JSON data
-        function toggleRawData() {
-            const rawData = document.getElementById('rawJsonData');
-            if (rawData.style.display === 'none') {
-                rawData.style.display = 'block';
-            } else {
-                rawData.style.display = 'none';
-            }
         }
         
         // Show status message
