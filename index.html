@@ -559,7 +559,6 @@
                 });
                 
                 if (response.ok) {
-                    showStatus('Analysis started! Waiting for results...', 'success');
                     input.value = '';
                     setTimeout(checkForResults, 3000);
                 } else {
@@ -586,7 +585,6 @@
                 
                 if (data.length > 0 && data[0].userInformation) {
                     displayProfile(data[0].userInformation);
-                    showStatus('Analysis completed!', 'success');
                 } else {
                     setTimeout(() => checkForResults(retryCount + 1), 3000);
                 }
