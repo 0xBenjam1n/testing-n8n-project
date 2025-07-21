@@ -493,38 +493,46 @@
                 highlights: 'https://oxbenjam1n.app.n8n.cloud/webhook-test/732f1aab-c467-41d0-b79d-a1283ffc8b2f'
             };
             
-            let url, input;
+            let url, data;
             
             if (posts && highlights) {
-                // Both selected - combine both data structures
+                // Both selected - separate input objects with names inside
                 url = urls.both;
-                input = {
-                    posts: {
-                        "username": [currentProfile.username],
-                        "resultsLimit": currentProfile.postsCount || 0
+                data = {
+                    postsInput: {
+                        posts: {
+                            "username": [currentProfile.username],
+                            "resultsLimit": currentProfile.postsCount || 0
+                        }
                     },
-                    highlights: {
-                        "profiles": [
-                            `https://www.instagram.com/${currentProfile.username}`,
-                            currentProfile.username
-                        ]
+                    highlightsInput: {
+                        highlights: {
+                            "profiles": [
+                                `https://www.instagram.com/${currentProfile.username}`,
+                                currentProfile.username
+                            ]
+                        }
                     }
                 };
             } else if (posts) {
                 // Posts only
                 url = urls.posts;
-                input = {
-                    "username": [currentProfile.username],
-                    "resultsLimit": currentProfile.postsCount || 0
+                data = {
+                    input: {
+                        "username": [currentProfile.username],
+                        "resultsLimit": currentProfile.postsCount || 0
+                    }
                 };
             } else if (highlights) {
                 // Highlights only
                 url = urls.highlights;
-                input = {
-                    "profiles": [
-                        `https://www.instagram.com/${currentProfile.username}`,
-                        currentProfile.username
-                    ]
+                data = {
+                    input: {
+                        "profiles": [
+                            `https://www.instagram.com/${currentProfile.username}`,
+                            currentProfile.username
+                        ]
+                    }
                 };
             }
             
@@ -532,7 +540,7 @@
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(input)
+                    body: JSON.stringify(data)
                 });
                 
                 if (response.ok) {
