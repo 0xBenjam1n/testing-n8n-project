@@ -1,126 +1,73 @@
 const express = require('express');
-const path = require('path');
+const cors = require('cors');
 const app = express();
-const PORT = process.env.PORT || 5500;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
+app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname)); // Serve static files from current directory
 
-// Store received data in memory
-let receivedData = [];
+// Data storage variables
+let receivedData = []; // Your existing profile data storage
+let postsData = []; // New posts data storage
 
-// Endpoint to receive data from n8n
-app.post('/receive-data', (req, res) => {
-    console.log('📨 Received from n8n:', req.body);
-    
-    // Store the data with timestamp
-    const dataWithTimestamp = {
-        ...req.body,
-        receivedAt: new Date().toISOString()
-    };
-    
-    receivedData.unshift(dataWithTimestamp); // Add to beginning of array
-    
-    // Keep only last 10 entries
-    if (receivedData.length > 10) {
-        receivedData = receivedData.slice(0, 10);
-    }
-    
-    // Send success response back to n8n
-    res.json({ 
-        success: true, 
-        message: 'Data received successfully',
-        dataCount: receivedData.length
-    });
-});
-
-// API endpoint to get received data
-app.get('/api/received-data', (req, res) => {
-    res.json(receivedData);
-});
-
-// Serve the main HTML page
+// Your existing endpoints (keep these exactly as they were)
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    // Your existing home route code
+    res.json({ message: 'API is running' });
 });
 
-// Health check endpoint
+app.post('/receive-data', (req, res) => {
+    // Your existing receive-data code
+    receivedData = req.body;
+    res.json({ success: true });
+});
+
+app.get('/api/received-data', (req, res) => {
+    // Your existing received-data code
+    res.json(receivedData || []);
+});
+
 app.get('/health', (req, res) => {
-    res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        receivedDataCount: receivedData.length,
-        endpoints: {
-            main: '/',
-            receiveData: '/receive-data',
-            apiData: '/api/received-data',
-            health: '/health'
-        }
-    });
+    // Your existing health check code
+    res.json({ status: 'OK' });
 });
 
-// Clear data endpoint (for testing)
 app.delete('/api/clear-data', (req, res) => {
+    // Your existing clear-data code
     receivedData = [];
-    console.log('🗑️ Data cleared');
-    
-    res.json({
-        success: true,
-        message: 'Data cleared successfully'
-    });
+    res.json({ success: true });
 });
 
-// Error handling
-app.use((err, req, res, next) => {
-    console.error('❌ Server Error:', err.stack);
-    res.status(500).json({
-        error: 'Something went wrong!',
-        message: err.message,
-        timestamp: new Date().toISOString()
-    });
+// NEW POSTS ENDPOINTS - Add these to your existing server
+app.post('/receive-posts', (req, res) => {
+    postsData = req.body;
+    console.log('Posts data received');
+    res.json({ success: true, message: 'Posts data received' });
 });
 
-// Handle 404 errors
-app.use((req, res) => {
-    res.status(404).json({
+app.get('/api/posts-data', (req, res) => {
+    res.json(postsData || []);
+});
+
+// Your existing 404 handler (update the available endpoints list)
+app.use('*', (req, res) => {
+    res.status(404).json({ 
         error: 'Not Found',
-        message: `Cannot ${req.method} ${req.url}`,
+        message: `Cannot ${req.method} ${req.originalUrl}`,
         availableEndpoints: [
             'GET /',
             'POST /receive-data',
             'GET /api/received-data',
+            'POST /receive-posts', // Add this line
+            'GET /api/posts-data',  // Add this line
             'GET /health',
             'DELETE /api/clear-data'
         ]
     });
 });
 
-// Start server
+// Your existing server start code
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📡 n8n should POST to: /receive-data`);
-    console.log(`🌐 Main page: http://localhost:${PORT}`);
-    console.log(`❤️ Health check: http://localhost:${PORT}/health`);
-    console.log(`🔧 Available endpoints:`);
-    console.log(`   GET  / - Main webpage`);
-    console.log(`   POST /receive-data - Receive Instagram data from n8n`);
-    console.log(`   GET  /api/received-data - Get stored data`);
-    console.log(`   GET  /health - Server health and stats`);
-    console.log(`   DELETE /api/clear-data - Clear stored data`);
+    console.log(`Server running on port ${PORT}`);
 });
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM received, shutting down gracefully');
-    process.exit(0);
-});
-
-process.on('SIGINT', () => {
-    console.log('🛑 SIGINT received, shutting down gracefully');
-    process.exit(0);
-});
-
-// Export for deployment compatibility
-module.exports = app;
