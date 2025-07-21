@@ -907,6 +907,18 @@
                 }
                 
                 // Second POST request based on selection
+                let secondWebhookUrl;
+                if (postsSelected && highlightsSelected) {
+                    // Both selected
+                    secondWebhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/ee95c5d8-139e-4d35-8eab-b431b741f566';
+                } else if (postsSelected) {
+                    // Only posts selected
+                    secondWebhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/ee95c5d8-139e-4d35-8eab-b431b741f564';
+                } else if (highlightsSelected) {
+                    // Only highlights selected
+                    secondWebhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/ee95c5d8-139e-4d35-8eab-b431b741f565';
+                }
+                
                 // Prepare data for the second webhook (can be customized if needed)
                 const secondWebhookData = {
                     username: currentProfile.username,
@@ -917,7 +929,7 @@
                     timestamp: new Date().toISOString()
                 };
                 
-                const response2 = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/ee95c5d8-139e-4d35-8eab-b431b741f563', {
+                const response2 = await fetch(secondWebhookUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
