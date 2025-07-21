@@ -1,98 +1,154 @@
 const express = require('express');
-const path = require('path');
+const cors = require('cors');
 const app = express();
-const PORT = process.env.PORT || 5500;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(express.json());
-app.use(express.static(__dirname)); // Serve static files from current directory
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Store received data in memory
-let receivedData = [];
+// Data storage
+let profileData = [];
+let postsData = [];
+let highlightsData = [];
 
-// Endpoint to receive data from n8n
-app.post('/receive-data', (req, res) => {
-    console.log('📨 Received from n8n:', req.body);
-    
-    // Store the data with timestamp
-    const dataWithTimestamp = {
-        ...req.body,
-        receivedAt: new Date().toISOString()
-    };
-    
-    receivedData.unshift(dataWithTimestamp); // Add to beginning of array
-    
-    // Keep only last 10 entries
-    if (receivedData.length > 10) {
-        receivedData = receivedData.slice(0, 10);
-    }
-    
-    // Send success response back to n8n
-    res.json({ 
-        success: true, 
-        message: 'Data received successfully',
-        dataCount: receivedData.length
-    });
-});
+// Routes
 
-// API endpoint to get received data
-app.get('/api/received-data', (req, res) => {
-    res.json(receivedData);
-});
-
-// Serve the main HTML page
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Health check endpoint
+// Health check
 app.get('/health', (req, res) => {
-    res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        receivedDataCount: receivedData.length,
-        endpoints: {
-            main: '/',
-            receiveData: '/receive-data',
-            apiData: '/api/received-data',
-            health: '/health'
-        }
+    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Home route
+app.get('/', (req, res) => {
+    res.json({ 
+        message: 'Instagram Analyzer API',
+        endpoints: [
+            'GET /',
+            'POST /receive-data',
+            'GET /api/received-data',
+            'POST /receive-posts',
+            'GET /api/posts-data',
+            'POST /receive-highlights',
+            'GET /api/highlights-data',
+            'GET /health',
+            'DELETE /api/clear-data',
+            'DELETE /api/clear-all-data'
+        ]
     });
 });
 
-// Clear data endpoint (for testing)
+// Profile data endpoints (existing)
+app.post('/receive-data', (req, res) => {
+    try {
+        profileData = req.body;
+        console.log('Profile data received:', JSON.stringify(profileData).substring(0, 200) + '...');
+        res.json({ success: true, message: 'Profile data received' });
+    } catch (error) {
+        console.error('Error receiving profile data:', error);
+        res.status(500).json({ error: 'Failed to receive profile data' });
+    }
+});
+
+app.get('/api/received-data', (req, res) => {
+    try {
+        res.json(profileData || []);
+    } catch (error) {
+        console.error('Error sending profile data:', error);
+        res.status(500).json({ error: 'Failed to send profile data' });
+    }
+});
+
+// Posts data endpoints (new)
+app.post('/receive-posts', (req, res) => {
+    try {
+        postsData = req.body;
+        console.log('Posts data received:', JSON.stringify(postsData).substring(0, 200) + '...');
+        res.json({ success: true, message: 'Posts data received' });
+    } catch (error) {
+        console.error('Error receiving posts data:', error);
+        res.status(500).json({ error: 'Failed to receive posts data' });
+    }
+});
+
+app.get('/api/posts-data', (req, res) => {
+    try {
+        res.json(postsData || []);
+    } catch (error) {
+        console.error('Error sending posts data:', error);
+        res.status(500).json({ error: 'Failed to send posts data' });
+    }
+});
+
+// Highlights data endpoints (future ready)
+app.post('/receive-highlights', (req, res) => {
+    try {
+        highlightsData = req.body;
+        console.log('Highlights data received:', JSON.stringify(highlightsData).substring(0, 200) + '...');
+        res.json({ success: true, message: 'Highlights data received' });
+    } catch (error) {
+        console.error('Error receiving highlights data:', error);
+        res.status(500).json({ error: 'Failed to receive highlights data' });
+    }
+});
+
+app.get('/api/highlights-data', (req, res) => {
+    try {
+        res.json(highlightsData || []);
+    } catch (error) {
+        console.error('Error sending highlights data:', error);
+        res.status(500).json({ error: 'Failed to send highlights data' });
+    }
+});
+
+// Clear data endpoints
 app.delete('/api/clear-data', (req, res) => {
-    receivedData = [];
-    console.log('🗑️ Data cleared');
-    
-    res.json({
-        success: true,
-        message: 'Data cleared successfully'
-    });
+    try {
+        profileData = [];
+        console.log('Profile data cleared');
+        res.json({ success: true, message: 'Profile data cleared' });
+    } catch (error) {
+        console.error('Error clearing profile data:', error);
+        res.status(500).json({ error: 'Failed to clear profile data' });
+    }
 });
 
-// Error handling
+app.delete('/api/clear-all-data', (req, res) => {
+    try {
+        profileData = [];
+        postsData = [];
+        highlightsData = [];
+        console.log('All data cleared');
+        res.json({ success: true, message: 'All data cleared' });
+    } catch (error) {
+        console.error('Error clearing all data:', error);
+        res.status(500).json({ error: 'Failed to clear all data' });
+    }
+});
+
+// Error handling middleware
 app.use((err, req, res, next) => {
-    console.error('❌ Server Error:', err.stack);
-    res.status(500).json({
-        error: 'Something went wrong!',
-        message: err.message,
-        timestamp: new Date().toISOString()
-    });
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Internal server error' });
 });
 
-// Handle 404 errors
-app.use((req, res) => {
-    res.status(404).json({
+// Handle 404
+app.use('*', (req, res) => {
+    res.status(404).json({ 
         error: 'Not Found',
-        message: `Cannot ${req.method} ${req.url}`,
+        message: `Cannot ${req.method} ${req.originalUrl}`,
         availableEndpoints: [
             'GET /',
             'POST /receive-data',
             'GET /api/received-data',
+            'POST /receive-posts',
+            'GET /api/posts-data',
+            'POST /receive-highlights',
+            'GET /api/highlights-data',
             'GET /health',
-            'DELETE /api/clear-data'
+            'DELETE /api/clear-data',
+            'DELETE /api/clear-all-data'
         ]
     });
 });
@@ -100,27 +156,15 @@ app.use((req, res) => {
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📡 n8n should POST to: /receive-data`);
-    console.log(`🌐 Main page: http://localhost:${PORT}`);
-    console.log(`❤️ Health check: http://localhost:${PORT}/health`);
-    console.log(`🔧 Available endpoints:`);
-    console.log(`   GET  / - Main webpage`);
-    console.log(`   POST /receive-data - Receive Instagram data from n8n`);
-    console.log(`   GET  /api/received-data - Get stored data`);
-    console.log(`   GET  /health - Server health and stats`);
-    console.log(`   DELETE /api/clear-data - Clear stored data`);
+    console.log(`📊 Available endpoints:`);
+    console.log(`   GET  / - API info`);
+    console.log(`   POST /receive-data - Receive profile data`);
+    console.log(`   GET  /api/received-data - Get profile data`);
+    console.log(`   POST /receive-posts - Receive posts data`);
+    console.log(`   GET  /api/posts-data - Get posts data`);
+    console.log(`   POST /receive-highlights - Receive highlights data`);
+    console.log(`   GET  /api/highlights-data - Get highlights data`);
+    console.log(`   GET  /health - Health check`);
+    console.log(`   DELETE /api/clear-data - Clear profile data`);
+    console.log(`   DELETE /api/clear-all-data - Clear all data`);
 });
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM received, shutting down gracefully');
-    process.exit(0);
-});
-
-process.on('SIGINT', () => {
-    console.log('🛑 SIGINT received, shutting down gracefully');
-    process.exit(0);
-});
-
-// Export for deployment compatibility
-module.exports = app;
