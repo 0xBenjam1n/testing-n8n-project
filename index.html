@@ -493,13 +493,46 @@
                 highlights: 'https://oxbenjam1n.app.n8n.cloud/webhook-test/732f1aab-c467-41d0-b79d-a1283ffc8b2f'
             };
             
-            const url = posts && highlights ? urls.both : posts ? urls.posts : urls.highlights;
+            let url, input;
+            
+            if (posts && highlights) {
+                // Both selected - combine both data structures
+                url = urls.both;
+                input = {
+                    posts: {
+                        "username": [currentProfile.username],
+                        "resultsLimit": currentProfile.postsCount || 0
+                    },
+                    highlights: {
+                        "profiles": [
+                            `https://www.instagram.com/${currentProfile.username}`,
+                            currentProfile.username
+                        ]
+                    }
+                };
+            } else if (posts) {
+                // Posts only
+                url = urls.posts;
+                input = {
+                    "username": [currentProfile.username],
+                    "resultsLimit": currentProfile.postsCount || 0
+                };
+            } else if (highlights) {
+                // Highlights only
+                url = urls.highlights;
+                input = {
+                    "profiles": [
+                        `https://www.instagram.com/${currentProfile.username}`,
+                        currentProfile.username
+                    ]
+                };
+            }
             
             try {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(true)
+                    body: JSON.stringify(input)
                 });
                 
                 if (response.ok) {
