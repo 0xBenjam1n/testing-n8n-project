@@ -387,7 +387,7 @@
             if (retryCount > 20) return;
             
             try {
-                const response = await fetch('/api/received-data');
+                const response = await fetch('https://testing-n8n-project-production.up.railway.app/api/received-data');
                 const data = await response.json();
                 
                 if (data.length > 0 && data[0].userInformation) {
@@ -581,7 +581,7 @@
             const pollForResults = async () => {
                 try {
                     attempts++;
-                    const response = await fetch('https://testing-n8n-project-production.up.railway.app/receive-posts');
+                    const response = await fetch('https://testing-n8n-project-production.up.railway.app/api/posts-data');
                     
                     if (response.ok) {
                         const jsonData = await response.json();
@@ -629,7 +629,7 @@
             // Start polling
             pollForResults();
         }
-
+        
         // Function to reset the app
         function resetApp() {
             document.getElementById('resultsSection').style.display = 'none';
@@ -638,6 +638,7 @@
             currentUsername = '';
         }
         
+        // Enter key support
         document.getElementById('usernameInput').addEventListener('keypress', e => {
             if (e.key === 'Enter') startAnalysis();
         });
