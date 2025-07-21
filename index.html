@@ -285,7 +285,25 @@
                         this.showImage(container, imageUrl);
                         resolve();
                     };
-                    img.onerror = () => reject();
+            
+            // Start polling
+            pollForResults();
+        }
+
+        // Function to reset the app
+        function resetApp() {
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('usernameInput').value = '';
+            currentProfile = null;
+            currentUsername = '';
+        }
+        
+        document.getElementById('usernameInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') startAnalysis();
+        });
+    </script>
+</body>
+</html>        img.onerror = () => reject();
                     img.crossOrigin = 'anonymous';
                     img.src = imageUrl;
                     setTimeout(reject, 5000);
@@ -581,7 +599,7 @@
             const pollForResults = async () => {
                 try {
                     attempts++;
-                    const response = await fetch('https://testing-n8n-project-production.up.railway.app/receive-posts');
+                    const response = await fetch('/api/received-posts');
                     
                     if (response.ok) {
                         const jsonData = await response.json();
@@ -625,22 +643,3 @@
                     }
                 }
             };
-            
-            // Start polling
-            pollForResults();
-        }
-
-        // Function to reset the app
-        function resetApp() {
-            document.getElementById('resultsSection').style.display = 'none';
-            document.getElementById('usernameInput').value = '';
-            currentProfile = null;
-            currentUsername = '';
-        }
-        
-        document.getElementById('usernameInput').addEventListener('keypress', e => {
-            if (e.key === 'Enter') startAnalysis();
-        });
-    </script>
-</body>
-</html>
