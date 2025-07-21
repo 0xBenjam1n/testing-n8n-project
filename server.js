@@ -1,137 +1,581 @@
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
+// Add this route to your existing working server.js
+// Replace your current app.get('/', (req, res) => { ... }) with this:
 
-// Middleware
-app.use(express.json());
-
-// Store received data in memory
-let receivedData = [];
-let postsData = [];
-
-// Endpoint to receive data from n8n
-app.post('/receive-data', (req, res) => {
-    console.log('📨 Received from n8n:', req.body);
-    
-    // Store the data with timestamp
-    const dataWithTimestamp = {
-        ...req.body,
-        receivedAt: new Date().toISOString()
-    };
-    
-    receivedData.unshift(dataWithTimestamp);
-    
-    // Keep only last 10 entries
-    if (receivedData.length > 10) {
-        receivedData = receivedData.slice(0, 10);
-    }
-    
-    res.json({ 
-        success: true, 
-        message: 'Data received successfully',
-        dataCount: receivedData.length
-    });
-});
-
-// Endpoint to receive posts data from n8n
-app.post('/receive-posts', (req, res) => {
-    console.log('📸 Received posts from n8n:', req.body);
-    
-    // Store the posts data with timestamp
-    const dataWithTimestamp = {
-        ...req.body,
-        receivedAt: new Date().toISOString()
-    };
-    
-    postsData.unshift(dataWithTimestamp);
-    
-    // Keep only last 10 entries
-    if (postsData.length > 10) {
-        postsData = postsData.slice(0, 10);
-    }
-    
-    res.json({ 
-        success: true, 
-        message: 'Posts data received successfully',
-        dataCount: postsData.length
-    });
-});
-
-// API endpoint to get received data
-app.get('/api/received-data', (req, res) => {
-    res.json(receivedData);
-});
-
-// API endpoint to get posts data
-app.get('/api/posts-data', (req, res) => {
-    res.json(postsData);
-});
-
-// Main page
 app.get('/', (req, res) => {
-    res.json({
-        message: 'Instagram Analyzer API',
-        status: 'running',
-        timestamp: new Date().toISOString(),
-        endpoints: [
-            'GET /',
-            'POST /receive-data',
-            'GET /api/received-data',
-            'POST /receive-posts',
-            'GET /api/posts-data',
-            'GET /health',
-            'DELETE /api/clear-data',
-            'DELETE /api/clear-posts'
-        ]
-    });
-});
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Profile Analyzer - Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+        
+        .container {
+            max-width: 800px; margin: 0 auto; background: white;
+            border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            background: #e1306c; color: white; padding: 30px;
+            text-align: center; border-radius: 8px 8px 0 0;
+        }
+        .header h1 { font-size: 24px; margin-bottom: 10px; }
+        
+        .content { padding: 30px; }
+        .form-group { margin-bottom: 20px; }
+        
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        
+        input[type="text"] {
+            width: 100%; padding: 12px; border: 2px solid #ddd;
+            border-radius: 4px; font-size: 16px;
+        }
+        input[type="text"]:focus { outline: none; border-color: #e1306c; }
+        
+        .btn, .confirm-btn {
+            background: #e1306c; color: white; padding: 12px 24px;
+            border: none; border-radius: 4px; cursor: pointer;
+            font-size: 16px; width: 100%; transition: background-color 0.2s;
+        }
+        .btn:hover:not(:disabled), .confirm-btn:hover:not(:disabled) { background: #c13584; }
+        .btn:disabled, .confirm-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .confirm-btn { font-weight: 600; border-radius: 6px; }
+        
+        .status {
+            margin-top: 16px; padding: 12px 16px; border-radius: 6px;
+            text-align: center; display: none; font-size: 14px; font-weight: 500;
+        }
+        .status.success { background: #f0f9f4; color: #166534; border: 1px solid #bbf7d0; }
+        .status.error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        receivedDataCount: receivedData.length,
-        postsDataCount: postsData.length
-    });
-});
+        .results-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #f0f0f0; }
+        .selection-page { display: none; }
+        
+        .profile-card {
+            background: linear-gradient(135deg, #e1306c, #c13584); color: white;
+            padding: 30px; border-radius: 12px; margin-bottom: 20px; text-align: center;
+        }
+        
+        .profile-pic-container {
+            width: 100px; height: 100px; margin: 0 auto 20px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        }
+        
+        .profile-pic {
+            width: 100%; height: 100%; border-radius: 50%; border: 3px solid white;
+            object-fit: cover; transition: opacity 0.3s;
+        }
+        
+        .profile-pic-fallback {
+            width: 100%; height: 100%; border-radius: 50%; border: 3px solid white;
+            background: #666; display: flex; align-items: center; justify-content: center;
+            font-size: 24px; color: white;
+        }
+        
+        .loading-spinner, .loading-spinner-profile {
+            border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        .loading-spinner {
+            width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #e1306c;
+        }
+        .loading-spinner-profile {
+            width: 20px; height: 20px; border: 2px solid white; border-top: 2px solid transparent;
+        }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .profile-name { font-size: 22px; font-weight: bold; margin-bottom: 8px; }
+        .profile-username { font-size: 16px; opacity: 0.9; margin-bottom: 20px; }
+        
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 15px; margin-top: 20px;
+        }
+        
+        .stat {
+            text-align: center; background: rgba(255,255,255,0.1);
+            padding: 12px; border-radius: 8px;
+        }
+        .stat-number { display: block; font-size: 18px; font-weight: bold; }
+        .stat-label {
+            font-size: 11px; opacity: 0.8; text-transform: uppercase; margin-top: 5px;
+        }
+        
+        .bio {
+            background: rgba(255,255,255,0.1); padding: 15px;
+            border-radius: 8px; margin-top: 15px; line-height: 1.5;
+        }
+        
+        .info-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;
+        }
+        
+        .info-card {
+            background: white; border: 1px solid #e9ecef;
+            border-radius: 8px; padding: 20px;
+        }
+        .info-card h3 {
+            margin: 0 0 15px 0; color: #e1306c; font-size: 16px;
+            border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;
+        }
+        
+        .info-item {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px; padding: 5px 0;
+        }
+        .info-label { font-weight: bold; color: #555; }
+        .info-value { color: #333; text-align: right; flex: 1; margin-left: 10px; }
+        
+        .badge {
+            background: #28a745; color: white; padding: 2px 8px;
+            border-radius: 12px; font-size: 12px; font-weight: bold;
+        }
+        .badge.no { background: #dc3545; }
+        
+        .loading {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 60px 20px; text-align: center;
+        }
+        .loading-text { font-size: 16px; font-weight: 500; color: #333; margin-top: 16px; }
+        .loading-subtext { font-size: 14px; color: #666; margin-top: 8px; }
+        
+        .confirmation-section, .selection-section {
+            background: #f9fafb; border: 1px solid #e5e7eb;
+            border-radius: 8px; padding: 24px; margin: 20px 0;
+        }
+        .confirmation-section { text-align: center; margin: 24px 0; }
+        
+        .checkbox-container {
+            display: flex; align-items: center; justify-content: center;
+            gap: 12px; margin-bottom: 16px;
+        }
+        .checkbox-container input[type="checkbox"] {
+            width: 18px; height: 18px; cursor: pointer; accent-color: #e1306c;
+        }
+        .checkbox-container label {
+            margin: 0; cursor: pointer; font-weight: 500;
+            color: #374151; font-size: 15px;
+        }
+        
+        .section-title { font-size: 18px; margin-bottom: 15px; color: #333; }
+        .selection-options { display: grid; gap: 16px; margin: 20px 0; }
 
-// Clear data endpoints
-app.delete('/api/clear-data', (req, res) => {
-    receivedData = [];
-    console.log('🗑️ Profile data cleared');
-    res.json({ success: true, message: 'Profile data cleared successfully' });
-});
+        .option-item {
+            background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 8px;
+            padding: 16px; display: flex; align-items: center; gap: 12px;
+            transition: all 0.2s; cursor: pointer; user-select: none;
+        }
+        .option-item:hover { background: #f3f4f6; border-color: #d1d5db; }
+        .option-item.selected {
+            background: #fef2f2; border-color: #e1306c;
+            box-shadow: 0 0 0 2px rgba(225, 48, 108, 0.1);
+        }
+        .option-item input[type="checkbox"] {
+            width: 18px; height: 18px; cursor: pointer;
+            accent-color: #e1306c; pointer-events: none;
+        }
+        .option-content { flex: 1; cursor: pointer; }
+        .option-title { font-weight: 600; color: #374151; margin-bottom: 4px; }
+        .option-count { font-size: 14px; color: #6b7280; }
 
-app.delete('/api/clear-posts', (req, res) => {
-    postsData = [];
-    console.log('🗑️ Posts data cleared');
-    res.json({ success: true, message: 'Posts data cleared successfully' });
-});
+        .back-btn, .proceed-btn {
+            padding: 10px 20px; border: none; border-radius: 6px;
+            cursor: pointer; font-size: 14px;
+        }
+        .back-btn { background: #6b7280; color: white; margin-right: 12px; }
+        .back-btn:hover { background: #4b5563; }
+        .proceed-btn { background: #059669; color: white; }
+        .proceed-btn:hover:not(:disabled) { background: #047857; }
+        .proceed-btn:disabled { background: #9ca3af; cursor: not-allowed; }
 
-// Handle 404 errors
-app.use('*', (req, res) => {
-    res.status(404).json({
-        error: 'Not Found',
-        message: `Cannot ${req.method} ${req.originalUrl}`,
-        availableEndpoints: [
-            'GET /',
-            'POST /receive-data',
-            'GET /api/received-data',
-            'POST /receive-posts',
-            'GET /api/posts-data',
-            'GET /health',
-            'DELETE /api/clear-data',
-            'DELETE /api/clear-posts'
-        ]
-    });
-});
+        .button-group {
+            display: flex; justify-content: center; gap: 12px; margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📸 Instagram Analyzer Demo</h1>
+            <p>Simple Instagram profile analysis tool</p>
+        </div>
+        
+        <div class="content">
+            <div id="mainPage">
+                <div class="form-group">
+                    <label for="usernameInput">Instagram Username:</label>
+                    <input type="text" id="usernameInput" placeholder="Enter username (e.g., cristiano)" autocomplete="off">
+                </div>
+                
+                <button class="btn" id="analyzeBtn" onclick="startAnalysis()">🔍 Analyze Profile</button>
+                <div id="status" class="status"></div>
+                
+                <div class="results-section" id="resultsSection" style="display: none;">
+                    <h2 class="section-title">📊 Analysis Results</h2>
+                    <div id="dataDisplay"></div>
+                </div>
+            </div>
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📡 Ready to receive data from n8n`);
-});
+            <div id="selectionPage" class="selection-page">
+                <h2 class="section-title">📋 Content Selection</h2>
+                <div class="selection-section">
+                    <p style="margin-bottom: 20px; color: #6b7280; text-align: center;">
+                        Select what content you want to analyze:
+                    </p>
+                    
+                    <div class="selection-options">
+                        <div class="option-item" onclick="toggleOption('posts')">
+                            <input type="checkbox" id="postsCheck">
+                            <div class="option-content">
+                                <div class="option-title">📸 Posts</div>
+                                <div class="option-count" id="postsCount">0 posts available</div>
+                            </div>
+                        </div>
+                        
+                        <div class="option-item" onclick="toggleOption('highlights')">
+                            <input type="checkbox" id="highlightsCheck">
+                            <div class="option-content">
+                                <div class="option-title">✨ Highlights</div>
+                                <div class="option-count" id="highlightsCount">0 highlights available</div>
+                            </div>
+                        </div>
+                    </div>
 
-module.exports = app;
+                    <div class="button-group">
+                        <button class="back-btn" onclick="goBack()">← Back</button>
+                        <button class="proceed-btn" onclick="proceedWithSelection()" disabled>Proceed</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUsername = '', currentProfile = null;
+        
+        class UniversalImageLoader {
+            static cache = new Map();
+            
+            static async loadImage(imageUrl, container) {
+                if (!imageUrl) return this.showFallback(container);
+                
+                if (this.cache.has(imageUrl)) {
+                    const result = this.cache.get(imageUrl);
+                    return result.success ? this.showImage(container, result.url) : this.showFallback(container);
+                }
+                
+                this.showLoading(container);
+                
+                try {
+                    await this.loadDirectImage(imageUrl, container);
+                } catch {
+                    try {
+                        await this.loadWithProxy(imageUrl, container);
+                    } catch {
+                        this.cache.set(imageUrl, { success: false });
+                        this.showFallback(container);
+                    }
+                }
+            }
+            
+            static loadDirectImage(imageUrl, container) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.cache.set(imageUrl, { success: true, url: imageUrl });
+                        this.showImage(container, imageUrl);
+                        resolve();
+                    };
+                    img.onerror = () => reject();
+                    img.crossOrigin = 'anonymous';
+                    img.src = imageUrl;
+                    setTimeout(reject, 5000);
+                });
+            }
+            
+            static async loadWithProxy(imageUrl, container) {
+                const proxies = [
+                    'https://api.allorigins.win/raw?url=' + encodeURIComponent(imageUrl),
+                    'https://cors-anywhere.herokuapp.com/' + imageUrl,
+                    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(imageUrl),
+                    imageUrl
+                ];
+
+                for (const proxy of proxies) {
+                    try {
+                        const response = await fetch(proxy, { headers: { 'Accept': 'image/*' } });
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            this.cache.set(imageUrl, { success: true, url });
+                            this.showImage(container, url);
+                            return;
+                        }
+                    } catch { continue; }
+                }
+                throw new Error('All proxies failed');
+            }
+            
+            static showLoading(container) {
+                container.innerHTML = '<div class="loading-spinner-profile"></div>';
+            }
+            
+            static showImage(container, src) {
+                container.innerHTML = '<img src="' + src + '" alt="Profile Picture" class="profile-pic" crossorigin="anonymous" onload="this.style.opacity=\\'1\\'" onerror="this.parentElement.innerHTML=\\'<div class=&quot;profile-pic-fallback&quot;>👤</div>\\'" style="opacity:0; transition: opacity 0.3s;">';
+            }
+            
+            static showFallback(container) {
+                const colors = ['#e53e3e', '#3182ce', '#38a169', '#d69e2e', '#805ad5', '#d53f8c'];
+                container.innerHTML = '<div class="profile-pic-fallback" style="background-color: ' + colors[Math.floor(Math.random() * colors.length)] + ';">👤</div>';
+            }
+        }
+        
+        function toggleOption(type) {
+            const checkbox = document.getElementById(type + 'Check');
+            const item = checkbox.closest('.option-item');
+            checkbox.checked = !checkbox.checked;
+            item.classList.toggle('selected', checkbox.checked);
+            updateProceedButton();
+        }
+        
+        function updateProceedButton() {
+            const posts = document.getElementById('postsCheck').checked;
+            const highlights = document.getElementById('highlightsCheck').checked;
+            document.querySelector('.proceed-btn').disabled = !posts && !highlights;
+        }
+        
+        async function startAnalysis() {
+            const input = document.getElementById('usernameInput');
+            const button = document.getElementById('analyzeBtn');
+            const username = input.value.trim();
+            
+            if (!username) return showStatus('Please enter an Instagram username', 'error');
+            
+            currentUsername = username;
+            button.disabled = true;
+            button.textContent = '🔄 Analyzing...';
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('dataDisplay').innerHTML = '<div class="loading"><div class="loading-spinner"></div><div class="loading-text">Analyzing @' + username + '</div><div class="loading-subtext">Please wait while we fetch the profile data...</div></div>';
+            
+            try {
+                const response = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/ee95c5d8-139e-4d35-8eab-b431b741f563', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ run_input: JSON.stringify({ usernames: [username] }) })
+                });
+                
+                if (response.ok) {
+                    input.value = '';
+                    setTimeout(checkForResults, 3000);
+                } else throw new Error('HTTP error! status: ' + response.status);
+                
+            } catch (error) {
+                console.error('Network error:', error);
+                showStatus('Error: ' + error.message, 'error');
+                document.getElementById('resultsSection').style.display = 'none';
+            } finally {
+                button.disabled = false;
+                button.textContent = '🔍 Analyze Profile';
+            }
+        }
+        
+        async function checkForResults(retryCount) {
+            retryCount = retryCount || 0;
+            if (retryCount > 20) return;
+            
+            try {
+                const response = await fetch('/api/received-data');
+                const data = await response.json();
+                
+                if (data.length > 0 && data[0].userInformation) {
+                    displayProfile(data[0].userInformation);
+                } else setTimeout(function() { checkForResults(retryCount + 1); }, 3000);
+            } catch { setTimeout(function() { checkForResults(retryCount + 1); }, 5000); }
+        }
+        
+        function displayProfile(profile) {
+            currentProfile = profile;
+            const format = function(num) { return (num || 0).toLocaleString(); };
+            const badge = function(val) { return '<span class="badge ' + (val ? 'yes' : 'no') + '">' + (val ? 'Yes' : 'No') + '</span>'; };
+            
+            document.getElementById('dataDisplay').innerHTML = '<div class="profile-card"><div class="profile-pic-container" id="profilePicContainer"></div><div class="profile-name">' + (profile.fullName || 'No name provided') + '</div><div class="profile-username">@' + profile.username + '</div><div class="stats-grid"><div class="stat"><span class="stat-number">' + format(profile.followersCount) + '</span><span class="stat-label">Followers</span></div><div class="stat"><span class="stat-number">' + format(profile.followsCount) + '</span><span class="stat-label">Following</span></div><div class="stat"><span class="stat-number">' + format(profile.postsCount) + '</span><span class="stat-label">Posts</span></div><div class="stat"><span class="stat-number">' + (profile.verified ? '✅' : '❌') + '</span><span class="stat-label">Verified</span></div></div>' + (profile.biography ? '<div class="bio"><strong>Bio:</strong><br>' + profile.biography + '</div>' : '') + '</div><div class="info-grid"><div class="info-card"><h3>📊 Account Details</h3><div class="info-item"><span class="info-label">Account Type:</span><span class="info-value">' + (profile.isBusinessAccount ? 'Business' : 'Personal') + '</span></div><div class="info-item"><span class="info-label">Private:</span><span class="info-value">' + badge(profile.private) + '</span></div><div class="info-item"><span class="info-label">Verified:</span><span class="info-value">' + badge(profile.verified) + '</span></div></div><div class="info-card"><h3>📺 Content Stats</h3><div class="info-item"><span class="info-label">Highlights:</span><span class="info-value">' + (profile.highlightReelCount || 0) + '</span></div><div class="info-item"><span class="info-label">IGTV Videos:</span><span class="info-value">' + (profile.igtvVideoCount || 0) + '</span></div><div class="info-item"><span class="info-label">Has Channel:</span><span class="info-value">' + badge(profile.hasChannel) + '</span></div></div></div><div class="confirmation-section"><div class="checkbox-container"><input type="checkbox" id="ownershipCheck"><label for="ownershipCheck">Yes, this is my page</label></div><button class="confirm-btn" onclick="confirmOwnership()">Confirm</button></div>';
+            
+            UniversalImageLoader.loadImage(profile.profilePicUrlHD || profile.profilePicUrl, document.getElementById('profilePicContainer'));
+        }
+        
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+            if (type === 'success') setTimeout(function() { status.style.display = 'none'; }, 5000);
+        }
+        
+        function confirmOwnership() {
+            if (!document.getElementById('ownershipCheck').checked) {
+                return alert('Please check the confirmation box first!');
+            }
+            showSelectionPage();
+        }
+
+        function showSelectionPage() {
+            document.getElementById('mainPage').style.display = 'none';
+            document.getElementById('selectionPage').style.display = 'block';
+            
+            document.getElementById('postsCount').textContent = (currentProfile && currentProfile.postsCount ? currentProfile.postsCount.toLocaleString() : '0') + ' posts available';
+            document.getElementById('highlightsCount').textContent = (currentProfile && currentProfile.highlightReelCount ? currentProfile.highlightReelCount.toLocaleString() : '0') + ' highlights available';
+            
+            ['postsCheck', 'highlightsCheck'].forEach(function(id) { document.getElementById(id).checked = false; });
+            document.querySelectorAll('.option-item').forEach(function(item) { item.classList.remove('selected'); });
+            updateProceedButton();
+        }
+
+        function goBack() {
+            document.getElementById('selectionPage').style.display = 'none';
+            document.getElementById('mainPage').style.display = 'block';
+            
+            ['postsCheck', 'highlightsCheck'].forEach(function(id) { document.getElementById(id).checked = false; });
+            document.querySelectorAll('.option-item').forEach(function(item) { item.classList.remove('selected'); });
+        }
+
+        async function proceedWithSelection() {
+            const posts = document.getElementById('postsCheck').checked;
+            const highlights = document.getElementById('highlightsCheck').checked;
+            const btn = document.querySelector('.proceed-btn');
+            
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            
+            const urls = {
+                both: 'https://oxbenjam1n.app.n8n.cloud/webhook-test/a49a9a92-3daa-4916-b5cd-796dd840cc80',
+                posts: 'https://oxbenjam1n.app.n8n.cloud/webhook-test/3b5c96fe-61c4-4bfd-9655-52bdccc6a41b',
+                highlights: 'https://oxbenjam1n.app.n8n.cloud/webhook-test/732f1aab-c467-41d0-b79d-a1283ffc8b2f'
+            };
+            
+            let url, data;
+            
+            if (posts && highlights) {
+                url = urls.both;
+                data = {
+                    postsInput: {
+                        posts: {
+                            username: currentProfile.username,
+                            resultsLimit: currentProfile.postsCount || 0
+                        }
+                    },
+                    highlightsInput: {
+                        highlights: {
+                            profiles: [
+                                'https://www.instagram.com/' + currentProfile.username,
+                                currentProfile.username
+                            ]
+                        }
+                    }
+                };
+            } else if (posts) {
+                url = urls.posts;
+                data = {
+                    postsData: {
+                        username: [currentProfile.username],
+                        resultsLimit: currentProfile.postsCount || 0
+                    }
+                };
+            } else if (highlights) {
+                url = urls.highlights;
+                data = {
+                    input: {
+                        profiles: [
+                            'https://www.instagram.com/' + currentProfile.username,
+                            currentProfile.username
+                        ]
+                    }
+                };
+            }
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    if (posts && !highlights) {
+                        btn.textContent = 'Fetching Results...';
+                        await displayPostsResults();
+                    } else {
+                        alert('✅ Done! Your data has been successfully processed.');
+                    }
+                } else throw new Error('HTTP error! status: ' + response.status);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Proceed';
+            }
+        }
+
+        async function displayPostsResults() {
+            let attempts = 0;
+            const maxAttempts = 20;
+            
+            document.getElementById('selectionPage').style.display = 'none';
+            document.getElementById('mainPage').style.display = 'block';
+            document.getElementById('dataDisplay').innerHTML = '<div class="loading"><div class="loading-spinner"></div><div class="loading-text">Processing Posts Analysis</div><div class="loading-subtext">Please wait while we fetch your results...</div></div>';
+            
+            const pollForResults = async function() {
+                try {
+                    attempts++;
+                    const response = await fetch('/api/posts-data');
+                    
+                    if (response.ok) {
+                        const jsonData = await response.json();
+                        
+                        if (jsonData && (Array.isArray(jsonData) ? jsonData.length > 0 : Object.keys(jsonData).length > 0)) {
+                            document.getElementById('dataDisplay').innerHTML = '<div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 20px;"><h3 style="color: #e1306c; margin-bottom: 15px;">📊 Posts Analysis Results</h3><pre style="background: white; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 14px; line-height: 1.4; max-height: 500px; overflow-y: auto;">' + JSON.stringify(jsonData, null, 2) + '</pre><button onclick="resetApp()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 6px; margin-top: 15px; cursor: pointer;">🔄 Analyze Another Profile</button></div>';
+                            
+                            alert('✅ Posts analysis completed! Results displayed below.');
+                            return;
+                        }
+                    }
+                    
+                    if (attempts < maxAttempts) {
+                        setTimeout(pollForResults, 3000);
+                    } else {
+                        throw new Error('Timeout: No data received after maximum attempts');
+                    }
+                    
+                } catch (error) {
+                    if (attempts < maxAttempts) {
+                        setTimeout(pollForResults, 3000);
+                    } else {
+                        console.error('Error fetching posts results:', error);
+                        document.getElementById('dataDisplay').innerHTML = '<div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin-top: 20px; text-align: center;"><h3 style="color: #dc2626; margin-bottom: 15px;">❌ Error</h3><p style="color: #dc2626; margin-bottom: 15px;">Failed to fetch results: ' + error.message + '</p><button onclick="resetApp()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">🔄 Try Again</button></div>';
+                    }
+                }
+            };
+            
+            pollForResults();
+        }
+        
+        function resetApp() {
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('usernameInput').value = '';
+            currentProfile = null;
+            currentUsername = '';
+        }
+        
+        document.getElementById('usernameInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') startAnalysis();
+        });
+    </script>
+</body>
+</html>`;
+    
+    res.send(htmlContent);
+});
