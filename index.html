@@ -501,7 +501,7 @@
                 data = {
                     postsInput: {
                         posts: {
-                            "username": [currentProfile.username],
+                            "username": currentProfile.username,
                             "resultsLimit": currentProfile.postsCount || 0
                         }
                     },
@@ -519,7 +519,7 @@
                 url = urls.posts;
                 data = {
                     input: {
-                        "username": [currentProfile.username],
+                        "username": currentProfile.username,
                         "resultsLimit": currentProfile.postsCount || 0
                     }
                 };
