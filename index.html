@@ -599,7 +599,7 @@
             const pollForResults = async () => {
                 try {
                     attempts++;
-                    const response = await fetch('/api/received-posts');
+                    const response = await fetch('https://testing-n8n-project-production.up.railway.app/api/received-posts');
                     
                     if (response.ok) {
                         const jsonData = await response.json();
