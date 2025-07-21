@@ -567,6 +567,17 @@
             let attempts = 0;
             const maxAttempts = 20; // Try for about 1 minute (3 seconds * 20)
             
+            // Hide selection page and show loading in main page
+            document.getElementById('selectionPage').style.display = 'none';
+            document.getElementById('mainPage').style.display = 'block';
+            document.getElementById('dataDisplay').innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Processing Posts Analysis</div>
+                    <div class="loading-subtext">Please wait while we fetch your results...</div>
+                </div>
+            `;
+            
             const pollForResults = async () => {
                 try {
                     attempts++;
@@ -577,10 +588,6 @@
                         
                         // Check if we have valid data (not empty)
                         if (jsonData && (Array.isArray(jsonData) ? jsonData.length > 0 : Object.keys(jsonData).length > 0)) {
-                            // Hide selection page and show results
-                            document.getElementById('selectionPage').style.display = 'none';
-                            document.getElementById('mainPage').style.display = 'block';
-                            
                             // Display the JSON data
                             document.getElementById('dataDisplay').innerHTML = `
                                 <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 20px;">
@@ -597,7 +604,6 @@
                     
                     // If no data yet and we haven't exceeded max attempts, try again
                     if (attempts < maxAttempts) {
-                        document.querySelector('.proceed-btn').textContent = `Fetching Results... (${attempts}/${maxAttempts})`;
                         setTimeout(pollForResults, 3000); // Wait 3 seconds before next attempt
                     } else {
                         throw new Error('Timeout: No data received after maximum attempts');
@@ -609,7 +615,13 @@
                         setTimeout(pollForResults, 3000);
                     } else {
                         console.error('Error fetching posts results:', error);
-                        alert(`❌ Error fetching results: ${error.message}`);
+                        document.getElementById('dataDisplay').innerHTML = `
+                            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin-top: 20px; text-align: center;">
+                                <h3 style="color: #dc2626; margin-bottom: 15px;">❌ Error</h3>
+                                <p style="color: #dc2626; margin-bottom: 15px;">Failed to fetch results: ${error.message}</p>
+                                <button onclick="resetApp()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">🔄 Try Again</button>
+                            </div>
+                        `;
                     }
                 }
             };
