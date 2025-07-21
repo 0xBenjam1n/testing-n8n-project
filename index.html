@@ -894,13 +894,18 @@
             
             try {
                 // First POST request to the original webhook
+                console.log('Sending to first webhook...');
                 const response1 = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/d440957e-80e2-4a20-a490-562f89226266', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json',
                     },
+                    mode: 'cors',
                     body: JSON.stringify(dataToSend)
                 });
+                
+                console.log('First webhook response status:', response1.status);
                 
                 if (!response1.ok) {
                     throw new Error(`First webhook error! status: ${response1.status}`);
@@ -929,13 +934,18 @@
                     timestamp: new Date().toISOString()
                 };
                 
+                console.log('Sending to second webhook:', secondWebhookUrl);
                 const response2 = await fetch(secondWebhookUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json',
                     },
+                    mode: 'cors',
                     body: JSON.stringify(secondWebhookData)
                 });
+                
+                console.log('Second webhook response status:', response2.status);
                 
                 if (!response2.ok) {
                     throw new Error(`Second webhook error! status: ${response2.status}`);
@@ -945,8 +955,18 @@
                 alert('✅ Done! Your data has been successfully processed.');
                 
             } catch (error) {
-                console.error('Error sending data:', error);
-                alert(`❌ Error: ${error.message}`);
+                console.error('Detailed error:', error);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                
+                // More specific error messages
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    alert('❌ Network Error: Unable to connect to the server. Please check your internet connection or try again later.');
+                } else if (error.message.includes('CORS')) {
+                    alert('❌ CORS Error: The server is not configured to accept requests from this origin.');
+                } else {
+                    alert(`❌ Error: ${error.message}`);
+                }
             } finally {
                 // Reset button
                 proceedBtn.disabled = false;
