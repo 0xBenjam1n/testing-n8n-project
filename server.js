@@ -9,6 +9,7 @@ app.use(express.static(__dirname)); // Serve static files from current directory
 
 // Store received data in memory
 let receivedData = [];
+let receivedPostsData = []; // New storage for posts data
 
 // Endpoint to receive data from n8n
 app.post('/receive-data', (req, res) => {
@@ -35,9 +36,39 @@ app.post('/receive-data', (req, res) => {
     });
 });
 
+// New endpoint to receive posts data from n8n
+app.post('/receive-posts', (req, res) => {
+    console.log('📨 Received posts data from n8n:', req.body);
+    
+    // Store the data with timestamp
+    const dataWithTimestamp = {
+        ...req.body,
+        receivedAt: new Date().toISOString()
+    };
+    
+    receivedPostsData.unshift(dataWithTimestamp); // Add to beginning of array
+    
+    // Keep only last 10 entries
+    if (receivedPostsData.length > 10) {
+        receivedPostsData = receivedPostsData.slice(0, 10);
+    }
+    
+    // Send success response back to n8n
+    res.json({ 
+        success: true, 
+        message: 'Posts data received successfully',
+        dataCount: receivedPostsData.length
+    });
+});
+
 // API endpoint to get received data
 app.get('/api/received-data', (req, res) => {
     res.json(receivedData);
+});
+
+// API endpoint to get received posts data
+app.get('/api/received-posts', (req, res) => {
+    res.json(receivedPostsData);
 });
 
 // Serve the main HTML page
@@ -52,10 +83,13 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         receivedDataCount: receivedData.length,
+        receivedPostsDataCount: receivedPostsData.length,
         endpoints: {
             main: '/',
             receiveData: '/receive-data',
+            receivePosts: '/receive-posts',
             apiData: '/api/received-data',
+            apiPosts: '/api/received-posts',
             health: '/health'
         }
     });
@@ -64,11 +98,12 @@ app.get('/health', (req, res) => {
 // Clear data endpoint (for testing)
 app.delete('/api/clear-data', (req, res) => {
     receivedData = [];
-    console.log('🗑️ Data cleared');
+    receivedPostsData = [];
+    console.log('🗑️ All data cleared');
     
     res.json({
         success: true,
-        message: 'Data cleared successfully'
+        message: 'All data cleared successfully'
     });
 });
 
@@ -90,7 +125,9 @@ app.use((req, res) => {
         availableEndpoints: [
             'GET /',
             'POST /receive-data',
+            'POST /receive-posts',
             'GET /api/received-data',
+            'GET /api/received-posts',
             'GET /health',
             'DELETE /api/clear-data'
         ]
@@ -100,13 +137,15 @@ app.use((req, res) => {
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📡 n8n should POST to: /receive-data`);
+    console.log(`📡 n8n should POST to: /receive-data or /receive-posts`);
     console.log(`🌐 Main page: http://localhost:${PORT}`);
     console.log(`❤️ Health check: http://localhost:${PORT}/health`);
     console.log(`🔧 Available endpoints:`);
     console.log(`   GET  / - Main webpage`);
     console.log(`   POST /receive-data - Receive Instagram data from n8n`);
+    console.log(`   POST /receive-posts - Receive Instagram posts data from n8n`);
     console.log(`   GET  /api/received-data - Get stored data`);
+    console.log(`   GET  /api/received-posts - Get stored posts data`);
     console.log(`   GET  /health - Server health and stats`);
     console.log(`   DELETE /api/clear-data - Clear stored data`);
 });
