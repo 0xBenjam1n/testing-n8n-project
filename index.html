@@ -518,10 +518,8 @@
                 // Posts only
                 url = urls.posts;
                 data = {
-                    input: {
-                        "username": currentProfile.username,
-                        "resultsLimit": currentProfile.postsCount || 0
-                    }
+                    "username": [currentProfile.username],
+                    "resultsLimit": currentProfile.postsCount || 0
                 };
             } else if (highlights) {
                 // Highlights only
