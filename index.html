@@ -26,7 +26,7 @@
         }
         
         .header {
-            background: #e1306c;
+            background: #1e40af;
             color: white;
             padding: 30px;
             text-align: center;
@@ -62,11 +62,11 @@
         
         input[type="text"]:focus {
             outline: none;
-            border-color: #e1306c;
+            border-color: #2563eb;
         }
         
         .btn {
-            background: #e1306c;
+            background: #2563eb;
             color: white;
             padding: 12px 24px;
             border: none;
@@ -77,7 +77,7 @@
         }
         
         .btn:hover:not(:disabled) {
-            background: #c13584;
+            background: #1d4ed8;
         }
         
         .btn:disabled {
@@ -114,7 +114,7 @@
         }
         
         .profile-card {
-            background: linear-gradient(135deg, #e1306c, #c13584);
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
             color: white;
             padding: 30px;
             border-radius: 12px;
@@ -159,7 +159,7 @@
             width: 24px;
             height: 24px;
             border: 3px solid #f3f3f3;
-            border-top: 3px solid #e1306c;
+            border-top: 3px solid #2563eb;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -240,7 +240,7 @@
         
         .info-card h3 {
             margin: 0 0 15px 0;
-            color: #e1306c;
+            color: #2563eb;
             font-size: 16px;
             border-bottom: 2px solid #f0f0f0;
             padding-bottom: 8px;
@@ -322,7 +322,7 @@
             width: 18px;
             height: 18px;
             cursor: pointer;
-            accent-color: #e1306c;
+            accent-color: #2563eb;
         }
         
         .checkbox-container label {
@@ -334,7 +334,7 @@
         }
         
         .confirm-btn {
-            background: #e1306c;
+            background: #2563eb;
             color: white;
             padding: 12px 24px;
             border: none;
@@ -347,7 +347,7 @@
         }
         
         .confirm-btn:hover:not(:disabled) {
-            background: #c13584;
+            background: #1d4ed8;
         }
         
         .confirm-btn:disabled {
@@ -398,7 +398,7 @@
             width: 18px;
             height: 18px;
             cursor: pointer;
-            accent-color: #e1306c;
+            accent-color: #2563eb;
         }
 
         .option-content {
@@ -899,9 +899,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json',
                     },
-                    mode: 'cors',
                     body: JSON.stringify(dataToSend)
                 });
                 
@@ -911,52 +909,24 @@
                     throw new Error(`First webhook error! status: ${response1.status}`);
                 }
                 
-                // Second POST request based on selection
-                let secondWebhookUrl;
-                let secondWebhookData;
-                
-                if (postsSelected && !highlightsSelected) {
-                    // Only posts selected - send the same format as the initial username request
-                    secondWebhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/3b5c96fe-61c4-4bfd-9655-52bdccc6a41b';
-                    secondWebhookData = {
-                        run_input: JSON.stringify({ usernames: [currentProfile.username] })
-                    };
-                } else if (!postsSelected && highlightsSelected) {
-                    // Only highlights selected
-                    secondWebhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/93833c3d-5adf-4686-a229-93d4020eeb51';
-                    secondWebhookData = {
-                        username: currentProfile.username,
-                        selectionType: 'highlights_only',
-                        highlightsCount: currentProfile.highlightReelCount || 0,
-                        timestamp: new Date().toISOString()
-                    };
-                } else if (postsSelected && highlightsSelected) {
-                    // Both selected
-                    secondWebhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/a8ad3f11-971b-4882-82c5-38774b7794a1';
-                    secondWebhookData = {
-                        username: currentProfile.username,
-                        selectionType: 'both',
-                        postsCount: currentProfile.postsCount || 0,
-                        highlightsCount: currentProfile.highlightReelCount || 0,
-                        timestamp: new Date().toISOString()
-                    };
-                }
-                
-                console.log('Sending to second webhook:', secondWebhookUrl);
-                const response2 = await fetch(secondWebhookUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    mode: 'cors',
-                    body: JSON.stringify(secondWebhookData)
-                });
-                
-                console.log('Second webhook response status:', response2.status);
-                
-                if (!response2.ok) {
-                    throw new Error(`Second webhook error! status: ${response2.status}`);
+                // Second POST request - ONLY for posts option, same as first page
+                if (postsSelected) {
+                    console.log('Sending to posts webhook...');
+                    const response2 = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/3b5c96fe-61c4-4bfd-9655-52bdccc6a41b', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            run_input: JSON.stringify({ usernames: [currentProfile.username] })
+                        })
+                    });
+                    
+                    console.log('Posts webhook response status:', response2.status);
+                    
+                    if (!response2.ok) {
+                        throw new Error(`Posts webhook error! status: ${response2.status}`);
+                    }
                 }
                 
                 // Success - show completion alert
