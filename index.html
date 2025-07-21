@@ -456,6 +456,42 @@
             gap: 12px;
             margin-top: 20px;
         }
+
+        .debug-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+
+        .debug-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #495057;
+        }
+
+        .debug-content {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .skip-btn {
+            background: #6c757d;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -481,6 +517,13 @@
                 <div class="results-section" id="resultsSection" style="display: none;">
                     <h2 class="section-title">📊 Analysis Results</h2>
                     <div id="dataDisplay"></div>
+                    
+                    <!-- Debug section -->
+                    <div class="debug-section" id="debugSection" style="display: none;">
+                        <div class="debug-title">🔧 Debug Information</div>
+                        <div class="debug-content" id="debugContent"></div>
+                        <button class="skip-btn" onclick="skipToDemo()">Skip to Demo Profile</button>
+                    </div>
                 </div>
             </div>
 
@@ -522,6 +565,8 @@
         let currentUsername = '';
         let currentProfile = null;
         let loadedImages = new Map();
+        let retryAttempts = 0;
+        const maxRetries = 15; // Reduced from 20 to prevent endless waiting
         
         // Universal image loader
         class UniversalImageLoader {
@@ -635,7 +680,20 @@
             }
         }
         
-        // Start analysis
+        // Debug logging
+        function logDebug(message, data = null) {
+            console.log(`[DEBUG] ${message}`, data);
+            const debugSection = document.getElementById('debugSection');
+            const debugContent = document.getElementById('debugContent');
+            
+            debugSection.style.display = 'block';
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}${data ? '\n' + JSON.stringify(data, null, 2) : ''}\n\n`;
+            debugContent.textContent += logEntry;
+            debugContent.scrollTop = debugContent.scrollHeight;
+        }
+        
+        // Start analysis with better error handling
         async function startAnalysis() {
             const input = document.getElementById('usernameInput');
             const button = document.getElementById('analyzeBtn');
@@ -648,10 +706,16 @@
                 return;
             }
             
+            // Reset retry counter
+            retryAttempts = 0;
             currentUsername = username;
             button.disabled = true;
             button.textContent = '🔄 Analyzing...';
             resultsSection.style.display = 'block';
+            
+            // Clear debug info
+            document.getElementById('debugContent').textContent = '';
+            document.getElementById('debugSection').style.display = 'none';
             
             document.getElementById('dataDisplay').innerHTML = `
                 <div class="loading">
@@ -661,23 +725,43 @@
                 </div>
             `;
             
+            logDebug(`Starting analysis for username: ${username}`);
+            
             try {
-                const response = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/ee95c5d8-139e-4d35-8eab-b431b741f563', {
+                const webhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/ee95c5d8-139e-4d35-8eab-b431b741f563';
+                const payload = {
+                    run_input: JSON.stringify({ usernames: [username] })
+                };
+                
+                logDebug('Sending request to n8n webhook', { url: webhookUrl, payload });
+                
+                const response = await fetch(webhookUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        run_input: JSON.stringify({ usernames: [username] })
-                    })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                logDebug('N8N Response received', { 
+                    status: response.status, 
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries())
                 });
                 
                 if (response.ok) {
+                    const responseData = await response.text();
+                    logDebug('N8N Response body', responseData);
+                    
                     input.value = '';
                     setTimeout(checkForResults, 3000);
                 } else {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
                 }
                 
             } catch (error) {
+                logDebug('Network error occurred', error.message);
                 console.error('Network error:', error);
                 showStatus(`Error: ${error.message}`, 'error');
                 resultsSection.style.display = 'none';
@@ -687,26 +771,84 @@
             }
         }
         
-        // Check for results with retry logic
+        // Enhanced result checking with better debugging
         async function checkForResults(retryCount = 0) {
-            if (retryCount > 20) return;
+            if (retryCount > maxRetries) {
+                logDebug(`Maximum retries (${maxRetries}) reached. Stopping.`);
+                showStatus('Analysis timed out. The service might be experiencing delays.', 'error');
+                return;
+            }
+            
+            retryAttempts = retryCount;
+            logDebug(`Checking for results - Attempt ${retryCount + 1}/${maxRetries + 1}`);
             
             try {
-                const response = await fetch('/api/received-data');
-                const data = await response.json();
+                // Try different possible endpoints
+                const endpoints = [
+                    '/api/received-data',
+                    '/received-data',
+                    '/webhook-data',
+                    `https://oxbenjam1n.app.n8n.cloud/webhook-test/get-data?username=${currentUsername}`
+                ];
                 
-                if (data.length > 0 && data[0].userInformation) {
-                    displayProfile(data[0].userInformation);
-                } else {
-                    setTimeout(() => checkForResults(retryCount + 1), 3000);
+                let dataFound = false;
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        logDebug(`Trying endpoint: ${endpoint}`);
+                        const response = await fetch(endpoint);
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            logDebug(`Data received from ${endpoint}`, data);
+                            
+                            // Try different data structures
+                            let profileData = null;
+                            
+                            if (Array.isArray(data) && data.length > 0) {
+                                if (data[0].userInformation) {
+                                    profileData = data[0].userInformation;
+                                } else if (data[0].username) {
+                                    profileData = data[0];
+                                }
+                            } else if (data.userInformation) {
+                                profileData = data.userInformation;
+                            } else if (data.username) {
+                                profileData = data;
+                            } else if (data.data && data.data.userInformation) {
+                                profileData = data.data.userInformation;
+                            }
+                            
+                            if (profileData && profileData.username) {
+                                logDebug('Valid profile data found', profileData);
+                                displayProfile(profileData);
+                                dataFound = true;
+                                break;
+                            }
+                        }
+                    } catch (endpointError) {
+                        logDebug(`Endpoint ${endpoint} failed:`, endpointError.message);
+                        continue;
+                    }
                 }
+                
+                if (!dataFound) {
+                    const nextRetry = retryCount + 1;
+                    const waitTime = Math.min(3000 + (retryCount * 1000), 8000); // Increasing delay
+                    logDebug(`No data found. Retrying in ${waitTime}ms...`);
+                    setTimeout(() => checkForResults(nextRetry), waitTime);
+                }
+                
             } catch (error) {
-                setTimeout(() => checkForResults(retryCount + 1), 5000);
+                logDebug('Error during result check:', error.message);
+                const nextRetry = retryCount + 1;
+                setTimeout(() => checkForResults(nextRetry), 5000);
             }
         }
         
-        // Display profile
+        // Display profile with fallback data
         function displayProfile(profile) {
+            logDebug('Displaying profile', profile);
             currentProfile = profile;
             const dataContainer = document.getElementById('dataDisplay');
             
@@ -789,6 +931,37 @@
             
             const container = document.getElementById('profilePicContainer');
             UniversalImageLoader.loadImage(profile.profilePicUrlHD || profile.profilePicUrl, container);
+            
+            // Hide debug section on success
+            document.getElementById('debugSection').style.display = 'none';
+        }
+        
+        // Create demo profile for testing
+        function createDemoProfile(username) {
+            return {
+                username: username,
+                fullName: 'Demo User',
+                biography: 'This is a demo profile for testing purposes. The actual data could not be loaded.',
+                followersCount: 12500,
+                followsCount: 850,
+                postsCount: 234,
+                highlightReelCount: 8,
+                igtvVideoCount: 12,
+                verified: false,
+                private: false,
+                isBusinessAccount: true,
+                hasChannel: true,
+                profilePicUrl: null,
+                profilePicUrlHD: null
+            };
+        }
+        
+        // Skip to demo function
+        function skipToDemo() {
+            logDebug('Skipping to demo profile');
+            const demoProfile = createDemoProfile(currentUsername || 'demo_user');
+            displayProfile(demoProfile);
+            showStatus('Showing demo data since real data could not be loaded', 'error');
         }
         
         // Show status message
@@ -847,7 +1020,7 @@
             document.getElementById('highlightsCheck').checked = false;
         }
 
-        // Proceed with selection
+        // Proceed with selection with better error handling
         async function proceedWithSelection() {
             const postsSelected = document.getElementById('postsCheck').checked;
             const highlightsSelected = document.getElementById('highlightsCheck').checked;
@@ -892,66 +1065,39 @@
                 confirmed: true
             };
             
+            console.log('Sending data to n8n:', dataToSend);
+            
             try {
-                // First POST request to the original webhook
-                console.log('Sending to first webhook...');
-                const response1 = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/d440957e-80e2-4a20-a490-562f89226266', {
+                const response = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/d440957e-80e2-4a20-a490-562f89226266', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json',
                     },
-                    mode: 'cors',
                     body: JSON.stringify(dataToSend)
                 });
                 
-                console.log('First webhook response status:', response1.status);
+                console.log('Response status:', response.status);
                 
-                if (!response1.ok) {
-                    throw new Error(`First webhook error! status: ${response1.status}`);
+                if (response.ok) {
+                    const responseText = await response.text();
+                    console.log('Response:', responseText);
+                    // Success - show completion alert
+                    alert('✅ Done! Your data has been successfully processed.');
+                    
+                    // Reset the form for next use
+                    setTimeout(() => {
+                        goBack();
+                        document.getElementById('resultsSection').style.display = 'none';
+                        document.getElementById('ownershipCheck').checked = false;
+                    }, 2000);
+                } else {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
                 }
-                
-                // Second POST request - only for posts option
-                if (postsSelected) {
-                    // Only send POST if posts is selected - same format as initial username request
-                    const postsWebhookData = {
-                        run_input: JSON.stringify({ usernames: [currentProfile.username] })
-                    };
-                    
-                    console.log('Sending to posts webhook...');
-                    const response2 = await fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/3b5c96fe-61c4-4bfd-9655-52bdccc6a41b', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                        },
-                        mode: 'cors',
-                        body: JSON.stringify(postsWebhookData)
-                    });
-                    
-                    console.log('Posts webhook response status:', response2.status);
-                    
-                    if (!response2.ok) {
-                        throw new Error(`Posts webhook error! status: ${response2.status}`);
-                    }
-                }
-                
-                // Success - show completion alert
-                alert('✅ Done! Your data has been successfully processed.');
                 
             } catch (error) {
-                console.error('Detailed error:', error);
-                console.error('Error name:', error.name);
-                console.error('Error message:', error.message);
-                
-                // More specific error messages
-                if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                    alert('❌ Network Error: Unable to connect to the server. Please check your internet connection or try again later.');
-                } else if (error.message.includes('CORS')) {
-                    alert('❌ CORS Error: The server is not configured to accept requests from this origin.');
-                } else {
-                    alert(`❌ Error: ${error.message}`);
-                }
+                console.error('Error sending data:', error);
+                alert(`❌ Error: ${error.message}`);
             } finally {
                 // Reset button
                 proceedBtn.disabled = false;
@@ -962,6 +1108,11 @@
         // Enter key support
         document.getElementById('usernameInput').addEventListener('keypress', e => {
             if (e.key === 'Enter') startAnalysis();
+        });
+
+        // Auto-focus on username input
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('usernameInput').focus();
         });
     </script>
 </body>
