@@ -7,11 +7,11 @@ const PORT = process.env.PORT || 5500;
 app.use(express.json());
 app.use(express.static(__dirname)); // Serve static files from current directory
 
-// Store received data in memory
+// Store received data in memory - EXACTLY like your original
 let receivedData = [];
 let receivedPostsData = []; // New storage for posts data
 
-// Endpoint to receive data from n8n
+// Endpoint to receive data from n8n - EXACTLY like your original
 app.post('/receive-data', (req, res) => {
     console.log('📨 Received from n8n:', req.body);
     
@@ -51,7 +51,7 @@ app.post('/receive-posts', (req, res) => {
     });
 });
 
-// API endpoint to get received data
+// API endpoint to get received data - EXACTLY like your original
 app.get('/api/received-data', (req, res) => {
     res.json(receivedData);
 });
@@ -72,8 +72,9 @@ app.get('/health', (req, res) => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        receivedDataCount: receivedData.length,
-        receivedPostsDataCount: receivedPostsData.length,
+        hasCurrentData: !!currentIncomingData,
+        hasCurrentPostsData: !!currentIncomingPostsData,
+        currentDataUsername: currentIncomingData?.userInformation?.username || 'none',
         endpoints: {
             main: '/',
             receiveData: '/receive-data',
@@ -88,14 +89,19 @@ app.get('/health', (req, res) => {
 
 // Clear data endpoint (for testing)
 app.delete('/api/clear-data', (req, res) => {
-    receivedData = [];
-    receivedPostsData = [];
-    console.log('🗑️ All data cleared');
-    
-    res.json({
-        success: true,
-        message: 'All data cleared successfully'
-    });
+    try {
+        currentIncomingData = null;
+        currentIncomingPostsData = null;
+        console.log('🗑️ Current data cleared');
+        
+        res.json({
+            success: true,
+            message: 'Current data cleared successfully'
+        });
+    } catch (error) {
+        console.error('Error clearing data:', error);
+        res.status(500).json({ error: 'Error clearing data' });
+    }
 });
 
 // Error handling
