@@ -4,18 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Instagram Profile Analyzer - Demo</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/3.4.0/tailwind.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'instagram': '#e1306c',
+                        'instagram-dark': '#c13584'
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        /* Custom animations and utilities */
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .animate-spin { animation: spin 1s linear infinite; }
-        .gradient-bg { background: linear-gradient(135deg, #e1306c, #c13584); }
+        .loading-spinner {
+            width: 24px; height: 24px; 
+            border: 3px solid #f3f3f3; 
+            border-top: 3px solid #e1306c;
+            border-radius: 50%; 
+            animation: spin 1s linear infinite;
+        }
+        .loading-spinner-profile {
+            width: 20px; height: 20px; 
+            border: 2px solid white; 
+            border-top: 2px solid transparent;
+            border-radius: 50%; 
+            animation: spin 1s linear infinite;
+        }
         .profile-pic { transition: opacity 0.3s; }
-        .option-item:hover { background: #f9fafb; border-color: #d1d5db; }
+        .option-item:hover { background: #f3f4f6; border-color: #d1d5db; }
         .option-item.selected {
             background: #fef2f2;
             border-color: #e1306c;
@@ -23,24 +45,24 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 p-5">
+<body class="font-sans bg-gray-100 p-5">
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg">
-        <div class="gradient-bg text-white p-8 text-center rounded-t-lg">
+        <div class="bg-gradient-to-br from-instagram to-instagram-dark text-white p-8 text-center rounded-t-lg">
             <h1 class="text-2xl font-bold mb-2">📸 Instagram Analyzer Demo</h1>
-            <p class="opacity-90">Simple Instagram profile analysis tool</p>
+            <p>Simple Instagram profile analysis tool</p>
         </div>
         
         <div class="p-8">
             <div id="mainPage">
                 <div class="mb-5">
-                    <label for="usernameInput" class="block mb-2 font-bold text-gray-700">Instagram Username:</label>
+                    <label for="usernameInput" class="block mb-2 font-bold">Instagram Username:</label>
                     <input type="text" id="usernameInput" placeholder="Enter username (e.g., cristiano)" 
-                           class="w-full p-3 border-2 border-gray-300 rounded focus:outline-none focus:border-pink-500 text-base" autocomplete="off">
+                           class="w-full p-3 border-2 border-gray-300 rounded focus:outline-none focus:border-instagram text-base" autocomplete="off">
                 </div>
                 
-                <button class="w-full bg-pink-500 hover:bg-pink-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white p-3 rounded font-medium text-base transition-colors" 
+                <button class="w-full bg-instagram hover:bg-instagram-dark disabled:bg-gray-400 disabled:cursor-not-allowed text-white p-3 rounded cursor-pointer text-base transition-colors duration-200" 
                         id="analyzeBtn" onclick="startAnalysis()">🔍 Analyze Profile</button>
-                <div id="status" class="hidden mt-4 p-3 rounded text-center text-sm font-medium"></div>
+                <div id="status" class="hidden mt-4 p-3 rounded-md text-center text-sm font-medium"></div>
                 
                 <div class="mt-8 pt-5 border-t-2 border-gray-100 hidden" id="resultsSection">
                     <h2 class="text-lg mb-4 text-gray-800">📊 Analysis Results</h2>
@@ -55,7 +77,7 @@
                         Select what content you want to analyze:
                     </p>
                     
-                    <div class="space-y-4 my-5">
+                    <div class="grid gap-4 my-5">
                         <div class="option-item bg-gray-50 border-2 border-gray-200 rounded-lg p-4 flex items-center gap-3 transition-all cursor-pointer select-none" 
                              onclick="toggleOption('posts')">
                             <input type="checkbox" id="postsCheck" class="w-5 h-5 cursor-pointer pointer-events-none" style="accent-color: #e1306c;">
@@ -76,8 +98,8 @@
                     </div>
 
                     <div class="flex justify-center gap-3 mt-5">
-                        <button class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded text-sm" onclick="goBack()">← Back</button>
-                        <button class="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-5 py-2 rounded text-sm" 
+                        <button class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 border-0 rounded-md cursor-pointer text-sm" onclick="goBack()">← Back</button>
+                        <button class="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-5 py-2 border-0 rounded-md cursor-pointer text-sm" 
                                 onclick="proceedWithSelection()" disabled>Proceed</button>
                     </div>
                 </div>
@@ -152,17 +174,16 @@
             }
             
             static showLoading(container) {
-                container.innerHTML = '<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>';
+                container.innerHTML = '<div class="loading-spinner-profile"></div>';
             }
             
             static showImage(container, src) {
-                container.innerHTML = `<img src="${src}" alt="Profile Picture" class="profile-pic w-full h-full rounded-full border-4 border-white object-cover opacity-0 transition-opacity duration-300" crossorigin="anonymous" onload="this.style.opacity='1'" onerror="this.parentElement.innerHTML='<div class=&quot;w-full h-full rounded-full border-4 border-white bg-gray-600 flex items-center justify-center text-2xl text-white&quot;>👤</div>'">`;
+                container.innerHTML = `<img src="${src}" alt="Profile Picture" class="profile-pic w-full h-full rounded-full border-4 border-white object-cover" crossorigin="anonymous" onload="this.style.opacity='1'" onerror="this.parentElement.innerHTML='<div class=&quot;w-full h-full rounded-full border-4 border-white bg-gray-600 flex items-center justify-center text-2xl text-white&quot;>👤</div>'" style="opacity:0; transition: opacity 0.3s;">`;
             }
             
             static showFallback(container) {
-                const colors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500'];
-                const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                container.innerHTML = `<div class="w-full h-full rounded-full border-4 border-white ${randomColor} flex items-center justify-center text-2xl text-white">👤</div>`;
+                const colors = ['#e53e3e', '#3182ce', '#38a169', '#d69e2e', '#805ad5', '#d53f8c'];
+                container.innerHTML = `<div class="w-full h-full rounded-full border-4 border-white flex items-center justify-center text-2xl text-white" style="background-color: ${colors[Math.floor(Math.random() * colors.length)]};">👤</div>`;
             }
         }
         
@@ -177,7 +198,7 @@
         function updateProceedButton() {
             const posts = document.getElementById('postsCheck').checked;
             const highlights = document.getElementById('highlightsCheck').checked;
-            document.querySelector('.bg-green-600').disabled = !posts && !highlights;
+            document.querySelector('[onclick="proceedWithSelection()"]').disabled = !posts && !highlights;
         }
         
         async function startAnalysis() {
@@ -202,8 +223,8 @@
             button.textContent = '🔄 Analyzing...';
             document.getElementById('resultsSection').classList.remove('hidden');
             document.getElementById('dataDisplay').innerHTML = `
-                <div class="flex flex-col items-center justify-center py-15 px-5 text-center">
-                    <div class="w-6 h-6 border-4 border-gray-300 border-t-pink-500 rounded-full animate-spin"></div>
+                <div class="flex flex-col items-center justify-center py-16 px-5 text-center">
+                    <div class="loading-spinner"></div>
                     <div class="text-base font-medium text-gray-800 mt-4">Analyzing @${username}</div>
                     <div class="text-sm text-gray-500 mt-2">Please wait while we fetch the profile data...</div>
                 </div>`;
@@ -236,14 +257,16 @@
                     <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
                         <h3 class="text-red-600 text-lg font-semibold mb-3">⏰ Timeout</h3>
                         <p class="text-red-600 mb-3">No data received after waiting. This might happen if:</p>
-                        <ul class="text-red-600 text-sm mb-4 list-disc list-inside">
+                        <ul class="text-red-600 text-sm mb-4 text-left list-disc list-inside">
                             <li>The Instagram username doesn't exist</li>
                             <li>The profile is private and can't be analyzed</li>
                             <li>n8n is taking longer than expected</li>
                             <li>There was a network issue</li>
                         </ul>
-                        <button onclick="resetApp()" class="bg-gray-500 text-white px-5 py-2 rounded mr-2">🔄 Try Another Profile</button>
-                        <button onclick="checkForResults(0)" class="bg-pink-500 text-white px-5 py-2 rounded">🔄 Check Again</button>
+                        <div class="space-x-2">
+                            <button onclick="resetApp()" class="bg-gray-500 text-white px-5 py-2 rounded-md mr-2 cursor-pointer hover:bg-gray-600">🔄 Try Another Profile</button>
+                            <button onclick="checkForResults(0)" class="bg-instagram text-white px-5 py-2 rounded-md cursor-pointer hover:bg-instagram-dark">🔄 Check Again</button>
+                        </div>
                     </div>`;
                 return;
             }
@@ -266,8 +289,8 @@
                 
                 // Update loading message with retry count
                 document.getElementById('dataDisplay').innerHTML = `
-                    <div class="flex flex-col items-center justify-center py-15 px-5 text-center">
-                        <div class="w-6 h-6 border-4 border-gray-300 border-t-pink-500 rounded-full animate-spin"></div>
+                    <div class="flex flex-col items-center justify-center py-16 px-5 text-center">
+                        <div class="loading-spinner"></div>
                         <div class="text-base font-medium text-gray-800 mt-4">Analyzing @${currentUsername}</div>
                         <div class="text-sm text-gray-500 mt-2">Still waiting for n8n... (Attempt ${retryCount + 1}/30)</div>
                         <div class="text-xs text-gray-400 mt-1">This may take up to 2-3 minutes</div>
@@ -284,39 +307,39 @@
         function displayProfile(profile) {
             currentProfile = profile;
             const format = (num) => (num || 0).toLocaleString();
-            const badge = (val) => `<span class="px-2 py-1 rounded-full text-xs font-bold ${val ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}">${val ? 'Yes' : 'No'}</span>`;
+            const badge = (val, text) => `<span class="inline-block px-2 py-1 rounded-full text-xs font-bold ${val ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}">${val ? 'Yes' : 'No'}</span>`;
             
             document.getElementById('dataDisplay').innerHTML = `
-                <div class="gradient-bg text-white p-8 rounded-xl mb-5 text-center">
-                    <div class="w-25 h-25 mx-auto mb-5 rounded-full flex items-center justify-center" id="profilePicContainer"></div>
+                <div class="bg-gradient-to-br from-instagram to-instagram-dark text-white p-8 rounded-xl mb-5 text-center">
+                    <div class="w-24 h-24 mx-auto mb-5 rounded-full flex items-center justify-center" id="profilePicContainer"></div>
                     <div class="text-xl font-bold mb-2">${profile.fullName || 'No name provided'}</div>
                     <div class="text-base opacity-90 mb-5">@${profile.username}</div>
                     
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
                         <div class="text-center bg-white bg-opacity-10 p-3 rounded-lg">
                             <span class="block text-lg font-bold">${format(profile.followersCount)}</span>
-                            <span class="text-xs opacity-80 uppercase mt-1 block">Followers</span>
+                            <span class="text-xs opacity-80 uppercase mt-1 block tracking-wide">Followers</span>
                         </div>
                         <div class="text-center bg-white bg-opacity-10 p-3 rounded-lg">
                             <span class="block text-lg font-bold">${format(profile.followsCount)}</span>
-                            <span class="text-xs opacity-80 uppercase mt-1 block">Following</span>
+                            <span class="text-xs opacity-80 uppercase mt-1 block tracking-wide">Following</span>
                         </div>
                         <div class="text-center bg-white bg-opacity-10 p-3 rounded-lg">
                             <span class="block text-lg font-bold">${format(profile.postsCount)}</span>
-                            <span class="text-xs opacity-80 uppercase mt-1 block">Posts</span>
+                            <span class="text-xs opacity-80 uppercase mt-1 block tracking-wide">Posts</span>
                         </div>
                         <div class="text-center bg-white bg-opacity-10 p-3 rounded-lg">
                             <span class="block text-lg font-bold">${profile.verified ? '✅' : '❌'}</span>
-                            <span class="text-xs opacity-80 uppercase mt-1 block">Verified</span>
+                            <span class="text-xs opacity-80 uppercase mt-1 block tracking-wide">Verified</span>
                         </div>
                     </div>
                     
-                    ${profile.biography ? `<div class="bg-white bg-opacity-10 p-4 rounded-lg mt-4 text-left"><strong>Bio:</strong><br>${profile.biography}</div>` : ''}
+                    ${profile.biography ? `<div class="bg-white bg-opacity-10 p-4 rounded-lg mt-4 text-left leading-relaxed"><strong>Bio:</strong><br>${profile.biography}</div>` : ''}
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div class="bg-white border border-gray-200 rounded-lg p-5">
-                        <h3 class="text-base font-semibold text-pink-500 mb-4 pb-2 border-b-2 border-gray-100">📊 Account Details</h3>
+                        <h3 class="text-base font-semibold text-instagram mb-4 pb-2 border-b-2 border-gray-100">📊 Account Details</h3>
                         <div class="space-y-2">
                             <div class="flex justify-between items-center py-1">
                                 <span class="font-bold text-gray-600">Account Type:</span>
@@ -334,7 +357,7 @@
                     </div>
                     
                     <div class="bg-white border border-gray-200 rounded-lg p-5">
-                        <h3 class="text-base font-semibold text-pink-500 mb-4 pb-2 border-b-2 border-gray-100">📺 Content Stats</h3>
+                        <h3 class="text-base font-semibold text-instagram mb-4 pb-2 border-b-2 border-gray-100">📺 Content Stats</h3>
                         <div class="space-y-2">
                             <div class="flex justify-between items-center py-1">
                                 <span class="font-bold text-gray-600">Highlights:</span>
@@ -352,12 +375,12 @@
                     </div>
                 </div>
                 
-                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 mt-6 text-center">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 my-6 text-center">
                     <div class="flex items-center justify-center gap-3 mb-4">
-                        <input type="checkbox" id="ownershipCheck" class="w-5 h-5" style="accent-color: #e1306c;">
-                        <label for="ownershipCheck" class="font-medium text-gray-700 text-sm">Yes, this is my page</label>
+                        <input type="checkbox" id="ownershipCheck" class="w-5 h-5 cursor-pointer" style="accent-color: #e1306c;">
+                        <label for="ownershipCheck" class="cursor-pointer font-medium text-gray-700 text-base">Yes, this is my page</label>
                     </div>
-                    <button class="w-full bg-pink-500 hover:bg-pink-600 text-white p-3 rounded-md font-semibold" onclick="confirmOwnership()">Confirm</button>
+                    <button class="w-full bg-instagram hover:bg-instagram-dark text-white p-3 rounded-md font-semibold cursor-pointer transition-colors" onclick="confirmOwnership()">Confirm</button>
                 </div>`;
             
             UniversalImageLoader.loadImage(profile.profilePicUrlHD || profile.profilePicUrl, document.getElementById('profilePicContainer'));
@@ -366,7 +389,7 @@
         function showStatus(message, type) {
             const status = document.getElementById('status');
             status.textContent = message;
-            status.className = `mt-4 p-3 rounded text-center text-sm font-medium ${type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`;
+            status.className = `mt-4 p-3 rounded-md text-center text-sm font-medium ${type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`;
             status.classList.remove('hidden');
             if (type === 'success') setTimeout(() => status.classList.add('hidden'), 5000);
         }
@@ -401,7 +424,7 @@
         async function proceedWithSelection() {
             const posts = document.getElementById('postsCheck').checked;
             const highlights = document.getElementById('highlightsCheck').checked;
-            const btn = document.querySelector('.bg-green-600');
+            const btn = document.querySelector('[onclick="proceedWithSelection()"]');
             
             btn.disabled = true;
             btn.textContent = 'Sending...';
@@ -489,8 +512,8 @@
             document.getElementById('selectionPage').classList.add('hidden');
             document.getElementById('mainPage').classList.remove('hidden');
             document.getElementById('dataDisplay').innerHTML = `
-                <div class="flex flex-col items-center justify-center py-15 px-5 text-center">
-                    <div class="w-6 h-6 border-4 border-gray-300 border-t-pink-500 rounded-full animate-spin"></div>
+                <div class="flex flex-col items-center justify-center py-16 px-5 text-center">
+                    <div class="loading-spinner"></div>
                     <div class="text-base font-medium text-gray-800 mt-4">Processing Posts Analysis for @${currentProfile.username}</div>
                     <div class="text-sm text-gray-500 mt-2">Please wait while n8n processes your request... (This may take 2-3 minutes)</div>
                 </div>
@@ -516,12 +539,12 @@
                             )) {
                                 document.getElementById('dataDisplay').innerHTML = `
                                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-5 mt-5">
-                                        <h3 class="text-pink-500 text-lg font-semibold mb-4">📊 Posts Analysis Results for @${currentProfile.username}</h3>
+                                        <h3 class="text-instagram text-lg font-semibold mb-4">📊 Posts Analysis Results for @${currentProfile.username}</h3>
                                         <div class="bg-white p-4 rounded-md mb-4">
                                             <strong>Data received at:</strong> ${recentData.receivedAt || 'Unknown'}
                                         </div>
-                                        <pre class="bg-white p-4 rounded-md overflow-x-auto text-xs leading-relaxed max-h-96 overflow-y-auto border">${JSON.stringify(recentData, null, 2)}</pre>
-                                        <button onclick="resetApp()" class="bg-gray-500 text-white px-5 py-2 rounded-md mt-4 hover:bg-gray-600">🔄 Analyze Another Profile</button>
+                                        <pre class="bg-white p-4 rounded-md overflow-x-auto text-xs leading-relaxed max-h-96 overflow-y-auto border font-mono">${JSON.stringify(recentData, null, 2)}</pre>
+                                        <button onclick="resetApp()" class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded-md mt-4 cursor-pointer transition-colors">🔄 Analyze Another Profile</button>
                                     </div>
                                 `;
                                 
@@ -532,8 +555,8 @@
                     }
                     
                     document.getElementById('dataDisplay').innerHTML = `
-                        <div class="flex flex-col items-center justify-center py-15 px-5 text-center">
-                            <div class="w-6 h-6 border-4 border-gray-300 border-t-pink-500 rounded-full animate-spin"></div>
+                        <div class="flex flex-col items-center justify-center py-16 px-5 text-center">
+                            <div class="loading-spinner"></div>
                             <div class="text-base font-medium text-gray-800 mt-4">Processing Posts Analysis for @${currentProfile.username}</div>
                             <div class="text-sm text-gray-500 mt-2">Waiting for n8n to complete... (Attempt ${attempts}/${maxAttempts})</div>
                             <div class="text-xs text-gray-400 mt-1">This process can take several minutes</div>
@@ -560,8 +583,8 @@
                                     This could happen if n8n is taking longer than expected or if there was a network issue.
                                 </p>
                                 <div class="space-x-2">
-                                    <button onclick="resetApp()" class="bg-gray-500 text-white px-5 py-2 rounded-md hover:bg-gray-600">🔄 Try Another Profile</button>
-                                    <button onclick="displayPostsResults()" class="bg-pink-500 text-white px-5 py-2 rounded-md hover:bg-pink-600">🔄 Check Again</button>
+                                    <button onclick="resetApp()" class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded-md cursor-pointer transition-colors">🔄 Try Another Profile</button>
+                                    <button onclick="displayPostsResults()" class="bg-instagram hover:bg-instagram-dark text-white px-5 py-2 rounded-md cursor-pointer transition-colors">🔄 Check Again</button>
                                 </div>
                             </div>
                         `;
