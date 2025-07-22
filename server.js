@@ -11,6 +11,26 @@ app.use(express.static(__dirname)); // Serve static files from current directory
 let receivedData = [];
 let receivedPostsData = []; // New storage for posts data
 
+// Helper function to extract username from data
+function extractUsername(data) {
+    try {
+        // Try different possible username fields
+        if (data.username) return data.username.toLowerCase();
+        if (data.userInformation?.username) return data.userInformation.username.toLowerCase();
+        if (data.profile?.username) return data.profile.username.toLowerCase();
+        
+        // Try to extract from nested objects
+        const jsonStr = JSON.stringify(data).toLowerCase();
+        const usernameMatch = jsonStr.match(/"username":\s*"([^"]+)"/);
+        if (usernameMatch) return usernameMatch[1];
+        
+        return null;
+    } catch (error) {
+        console.warn('Error extracting username:', error);
+        return null;
+    }
+}
+
 // Endpoint to receive data from n8n
 app.post('/receive-data', (req, res) => {
     console.log('📨 Received from n8n:', req.body);
@@ -51,14 +71,54 @@ app.post('/receive-posts', (req, res) => {
     });
 });
 
-// API endpoint to get received data
+// API endpoint to get received data with optional username filtering
 app.get('/api/received-data', (req, res) => {
-    res.json(receivedData);
+    try {
+        const requestedUsername = req.query.username;
+        
+        if (requestedUsername) {
+            console.log(`🔍 Filtering data for username: ${requestedUsername}`);
+            
+            // Filter for specific username
+            const filteredData = receivedData.filter(item => {
+                const username = extractUsername(item);
+                return username && username === requestedUsername.toLowerCase();
+            });
+            
+            console.log(`Found ${filteredData.length} items for ${requestedUsername}`);
+            res.json(filteredData);
+        } else {
+            res.json(receivedData);
+        }
+    } catch (error) {
+        console.error('Error in /api/received-data:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
-// API endpoint to get received posts data
+// API endpoint to get received posts data with optional username filtering
 app.get('/api/received-posts', (req, res) => {
-    res.json(receivedPostsData);
+    try {
+        const requestedUsername = req.query.username;
+        
+        if (requestedUsername) {
+            console.log(`🔍 Filtering posts data for username: ${requestedUsername}`);
+            
+            // Filter for specific username
+            const filteredData = receivedPostsData.filter(item => {
+                const username = extractUsername(item);
+                return username && username === requestedUsername.toLowerCase();
+            });
+            
+            console.log(`Found ${filteredData.length} posts items for ${requestedUsername}`);
+            res.json(filteredData);
+        } else {
+            res.json(receivedPostsData);
+        }
+    } catch (error) {
+        console.error('Error in /api/received-posts:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // Serve the main HTML page
@@ -88,14 +148,19 @@ app.get('/health', (req, res) => {
 
 // Clear data endpoint (for testing)
 app.delete('/api/clear-data', (req, res) => {
-    receivedData = [];
-    receivedPostsData = [];
-    console.log('🗑️ All data cleared');
-    
-    res.json({
-        success: true,
-        message: 'All data cleared successfully'
-    });
+    try {
+        receivedData = [];
+        receivedPostsData = [];
+        console.log('🗑️ All data cleared');
+        
+        res.json({
+            success: true,
+            message: 'All data cleared successfully'
+        });
+    } catch (error) {
+        console.error('Error clearing data:', error);
+        res.status(500).json({ error: 'Error clearing data' });
+    }
 });
 
 // Error handling
