@@ -7,124 +7,59 @@ const PORT = process.env.PORT || 5500;
 app.use(express.json());
 app.use(express.static(__dirname)); // Serve static files from current directory
 
-// Store received data in memory
-let receivedData = [];
-let receivedPostsData = []; // New storage for posts data
-
-// Helper function to extract username from data
-function extractUsername(data) {
-    try {
-        console.log('🔍 Extracting username from data:', JSON.stringify(data, null, 2));
-        
-        // Try different possible username fields
-        if (data.username) {
-            console.log('✅ Found username in data.username:', data.username);
-            return data.username.toLowerCase();
-        }
-        if (data.userInformation?.username) {
-            console.log('✅ Found username in data.userInformation.username:', data.userInformation.username);
-            return data.userInformation.username.toLowerCase();
-        }
-        if (data.profile?.username) {
-            console.log('✅ Found username in data.profile.username:', data.profile.username);
-            return data.profile.username.toLowerCase();
-        }
-        
-        // Try to extract from nested objects more thoroughly
-        const jsonStr = JSON.stringify(data);
-        console.log('🔍 Searching in JSON string for username patterns...');
-        
-        // Look for various username patterns
-        const patterns = [
-            /"username":\s*"([^"]+)"/i,
-            /"user":\s*"([^"]+)"/i,
-            /"handle":\s*"([^"]+)"/i,
-            /"account":\s*"([^"]+)"/i
-        ];
-        
-        for (const pattern of patterns) {
-            const match = jsonStr.match(pattern);
-            if (match) {
-                console.log(`✅ Found username with pattern ${pattern}:`, match[1]);
-                return match[1].toLowerCase();
-            }
-        }
-        
-        console.log('❌ No username found in data');
-        return null;
-    } catch (error) {
-        console.warn('Error extracting username:', error);
-        return null;
-    }
-}
+// No storage - just temporary holding for real-time waiting
+let currentIncomingData = null;
+let currentIncomingPostsData = null;
 
 // Endpoint to receive data from n8n
 app.post('/receive-data', (req, res) => {
     console.log('📨 Received from n8n:', JSON.stringify(req.body, null, 2));
     
-    // Extract username for logging
-    const extractedUsername = extractUsername(req.body);
-    console.log('🏷️ Extracted username:', extractedUsername);
-    
-    // Store the data with timestamp
-    const dataWithTimestamp = {
+    // Store temporarily for real-time waiting (no permanent storage)
+    currentIncomingData = {
         ...req.body,
-        receivedAt: new Date().toISOString(),
-        extractedUsername: extractedUsername // Add extracted username for easier filtering
+        receivedAt: new Date().toISOString()
     };
     
-    receivedData.unshift(dataWithTimestamp); // Add to beginning of array
-    
-    console.log(`📦 Total stored items: ${receivedData.length}`);
-    console.log(`🏷️ Usernames in storage:`, receivedData.map(item => item.extractedUsername || 'unknown'));
+    console.log(`📦 New data received and ready for pickup`);
     
     // Send success response back to n8n
     res.json({ 
         success: true, 
-        message: 'Data received successfully',
-        dataCount: receivedData.length,
-        extractedUsername: extractedUsername
+        message: 'Data received successfully'
     });
 });
 
 // New endpoint to receive posts data from n8n
 app.post('/receive-posts', (req, res) => {
-    console.log('📨 Received posts data from n8n:', req.body);
+    console.log('📨 Received posts data from n8n:', JSON.stringify(req.body, null, 2));
     
-    // Store the data with timestamp
-    const dataWithTimestamp = {
+    // Store temporarily for real-time waiting
+    currentIncomingPostsData = {
         ...req.body,
         receivedAt: new Date().toISOString()
     };
     
-    receivedPostsData.unshift(dataWithTimestamp); // Add to beginning of array
+    console.log(`📦 New posts data received and ready for pickup`);
     
     // Send success response back to n8n
     res.json({ 
         success: true, 
-        message: 'Posts data received successfully',
-        dataCount: receivedPostsData.length
+        message: 'Posts data received successfully'
     });
 });
 
-// API endpoint to get received data with optional username filtering
+// API endpoint to get current incoming data (no storage, just current)
 app.get('/api/received-data', (req, res) => {
     try {
-        const requestedUsername = req.query.username;
+        console.log(`📊 API request for current data`);
         
-        if (requestedUsername) {
-            console.log(`🔍 Filtering data for username: ${requestedUsername}`);
-            
-            // Filter for specific username
-            const filteredData = receivedData.filter(item => {
-                const username = extractUsername(item);
-                return username && username === requestedUsername.toLowerCase();
-            });
-            
-            console.log(`Found ${filteredData.length} items for ${requestedUsername}`);
-            res.json(filteredData);
+        if (currentIncomingData) {
+            console.log(`📤 Sending current data to frontend`);
+            res.json([currentIncomingData]); // Send as array to match original format
         } else {
-            res.json(receivedData);
+            console.log(`📭 No current data available`);
+            res.json([]);
         }
     } catch (error) {
         console.error('Error in /api/received-data:', error);
@@ -132,24 +67,17 @@ app.get('/api/received-data', (req, res) => {
     }
 });
 
-// API endpoint to get received posts data with optional username filtering
+// API endpoint to get current incoming posts data
 app.get('/api/received-posts', (req, res) => {
     try {
-        const requestedUsername = req.query.username;
+        console.log(`📊 API request for current posts data`);
         
-        if (requestedUsername) {
-            console.log(`🔍 Filtering posts data for username: ${requestedUsername}`);
-            
-            // Filter for specific username
-            const filteredData = receivedPostsData.filter(item => {
-                const username = extractUsername(item);
-                return username && username === requestedUsername.toLowerCase();
-            });
-            
-            console.log(`Found ${filteredData.length} posts items for ${requestedUsername}`);
-            res.json(filteredData);
+        if (currentIncomingPostsData) {
+            console.log(`📤 Sending current posts data to frontend`);
+            res.json([currentIncomingPostsData]); // Send as array to match original format
         } else {
-            res.json(receivedPostsData);
+            console.log(`📭 No current posts data available`);
+            res.json([]);
         }
     } catch (error) {
         console.error('Error in /api/received-posts:', error);
@@ -168,8 +96,9 @@ app.get('/health', (req, res) => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        receivedDataCount: receivedData.length,
-        receivedPostsDataCount: receivedPostsData.length,
+        hasCurrentData: !!currentIncomingData,
+        hasCurrentPostsData: !!currentIncomingPostsData,
+        currentDataUsername: currentIncomingData?.userInformation?.username || 'none',
         endpoints: {
             main: '/',
             receiveData: '/receive-data',
@@ -185,13 +114,13 @@ app.get('/health', (req, res) => {
 // Clear data endpoint (for testing)
 app.delete('/api/clear-data', (req, res) => {
     try {
-        receivedData = [];
-        receivedPostsData = [];
-        console.log('🗑️ All data cleared');
+        currentIncomingData = null;
+        currentIncomingPostsData = null;
+        console.log('🗑️ Current data cleared');
         
         res.json({
             success: true,
-            message: 'All data cleared successfully'
+            message: 'Current data cleared successfully'
         });
     } catch (error) {
         console.error('Error clearing data:', error);
