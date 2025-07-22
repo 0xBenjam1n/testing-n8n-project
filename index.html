@@ -197,6 +197,7 @@
             
             const currentUser = currentUsername.toLowerCase();
             console.log(`🔍 Checking if data is for user: ${currentUser}`);
+            console.log(`📊 Full data received:`, data);
             
             // Check multiple possible username locations with exact matching
             const checks = [
@@ -205,9 +206,27 @@
                 data.profile?.username?.toLowerCase()
             ];
             
-            const match = checks.some(username => username === currentUser);
-            console.log(`✅ Username match result: ${match}`, checks);
-            return match;
+            // Also check if data is nested deeper or has different structure
+            try {
+                const dataStr = JSON.stringify(data).toLowerCase();
+                const hasUsernameInData = dataStr.includes(`"username":"${currentUser}"`) || 
+                                        dataStr.includes(`"${currentUser}"`) ||
+                                        dataStr.includes(currentUser);
+                
+                console.log(`🔍 Checks array:`, checks);
+                console.log(`🔍 Has username in JSON:`, hasUsernameInData);
+                
+                const exactMatch = checks.some(username => username === currentUser);
+                const result = exactMatch || hasUsernameInData;
+                
+                console.log(`✅ Username match result: ${result} (exact: ${exactMatch}, inData: ${hasUsernameInData})`);
+                return result;
+            } catch (error) {
+                console.warn('Error checking username in data:', error);
+                const match = checks.some(username => username === currentUser);
+                console.log(`✅ Fallback username match result: ${match}`, checks);
+                return match;
+            }
         }
         
         function isPostsDataForCurrentUser(data) {
@@ -263,7 +282,7 @@
             document.getElementById('resultsSection').style.display = 'block';
             document.getElementById('dataDisplay').innerHTML = `
                 <div class="flex flex-col items-center justify-center py-16 px-5 text-center">
-                    <div class="w-6 h-6 border-3 border-gray-300 border-t-instagram-pink rounded-full animate-spin"></div>
+                    <div class="w-6 h-6 border-4 border-gray-300 border-t-instagram-pink rounded-full animate-spin"></div>
                     <div class="text-base font-medium text-gray-700 mt-4">Analyzing @${username}</div>
                     <div class="text-sm text-gray-600 mt-2">Please wait while we fetch the profile data...</div>
                 </div>`;
@@ -309,11 +328,24 @@
             try {
                 console.log(`🔄 Checking for results (attempt ${retryCount + 1}/20) for: ${currentUsername}`);
                 
-                // Use username filtering to get only data for current user
-                const response = await fetch(`https://testing-n8n-project-production.up.railway.app/api/received-data?username=${encodeURIComponent(currentUsername)}`);
-                const data = await response.json();
+                // First try with username filtering
+                let response = await fetch(`https://testing-n8n-project-production.up.railway.app/api/received-data?username=${encodeURIComponent(currentUsername)}`);
+                let data = await response.json();
                 
-                console.log(`📊 Received ${data.length} items for ${currentUsername}:`, data);
+                console.log(`📊 Received ${data.length} items for ${currentUsername} (filtered):`, data);
+                
+                // If no filtered results, try getting all data and check manually
+                if (data.length === 0) {
+                    console.log(`🔍 No filtered results, checking all data...`);
+                    response = await fetch(`https://testing-n8n-project-production.up.railway.app/api/received-data`);
+                    const allData = await response.json();
+                    console.log(`📊 Total items in database:`, allData.length);
+                    console.log(`📊 All data:`, allData);
+                    
+                    // Find data manually
+                    data = allData.filter(item => isDataForCurrentUser(item));
+                    console.log(`📊 Manually filtered items:`, data.length, data);
+                }
                 
                 // Find data specifically for current username with strict validation
                 const userSpecificData = data.find(item => isDataForCurrentUser(item));
@@ -321,6 +353,21 @@
                 if (userSpecificData && userSpecificData.userInformation) {
                     console.log(`✅ Found valid data for ${currentUsername}`);
                     displayProfile(userSpecificData.userInformation);
+                } else if (userSpecificData) {
+                    console.log(`⚠️ Found data but no userInformation field:`, userSpecificData);
+                    // Try to extract user info from different structures
+                    const profileData = userSpecificData.userInformation || 
+                                      userSpecificData.profile || 
+                                      userSpecificData.user || 
+                                      userSpecificData;
+                    
+                    if (profileData && (profileData.username || profileData.fullName)) {
+                        console.log(`✅ Using extracted profile data:`, profileData);
+                        displayProfile(profileData);
+                    } else {
+                        console.log(`⏳ Data found but invalid structure, retrying...`);
+                        setTimeout(() => checkForResults(retryCount + 1), 3000);
+                    }
                 } else {
                     console.log(`⏳ No valid data yet for ${currentUsername}, retrying...`);
                     setTimeout(() => checkForResults(retryCount + 1), 3000);
