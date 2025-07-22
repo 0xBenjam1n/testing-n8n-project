@@ -508,6 +508,12 @@
             let attempts = 0;
             const maxAttempts = 40; // Increased for longer waiting
             
+            // Calculate dynamic polling interval based on posts count
+            const resultsLimit = currentProfile.postsCount || 10;
+            const pollingInterval = resultsLimit * 5 * 1000; // Convert to milliseconds
+            
+            console.log(`Setting polling interval to ${pollingInterval/1000} seconds (${resultsLimit} posts * 5)`);
+            
             document.getElementById('selectionPage').classList.add('hidden');
             document.getElementById('mainPage').classList.remove('hidden');
             
@@ -521,6 +527,7 @@
                                  id="progressBar" style="width: 0%"></div>
                         </div>
                         <div class="text-sm text-gray-500">This may take a few seconds...</div>
+                        <div class="text-xs text-gray-400 mt-1">Analyzing ${resultsLimit} posts (checking every ${pollingInterval/1000}s)</div>
                     </div>
                 </div>
             `;
@@ -536,7 +543,7 @@
             const pollForResults = async () => {
                 try {
                     attempts++;
-                    console.log(`Polling attempt ${attempts}/${maxAttempts} for posts results...`);
+                    console.log(`Polling attempt ${attempts}/${maxAttempts} for posts results... (interval: ${pollingInterval/1000}s)`);
                     
                     const response = await fetch('https://testing-n8n-project-production.up.railway.app/api/received-posts');
                     
@@ -576,7 +583,7 @@
                     }
                     
                     if (attempts < maxAttempts) {
-                        setTimeout(pollForResults, 5000);
+                        setTimeout(pollForResults, pollingInterval); // Use dynamic interval
                     } else {
                         clearInterval(progressInterval);
                         throw new Error('Timeout: No data received after maximum attempts. Please try again.');
@@ -585,8 +592,8 @@
                 } catch (error) {
                     clearInterval(progressInterval);
                     if (attempts < maxAttempts && !error.message.includes('Timeout')) {
-                        console.log(`Network error on attempt ${attempts}, retrying...`);
-                        setTimeout(pollForResults, 5000);
+                        console.log(`Network error on attempt ${attempts}, retrying in ${pollingInterval/1000}s...`);
+                        setTimeout(pollForResults, pollingInterval); // Use dynamic interval
                     } else {
                         console.error('Error fetching posts results:', error);
                         document.getElementById('dataDisplay').innerHTML = `
