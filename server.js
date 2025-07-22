@@ -7,82 +7,58 @@ const PORT = process.env.PORT || 5500;
 app.use(express.json());
 app.use(express.static(__dirname)); // Serve static files from current directory
 
-// No storage - just temporary holding for real-time waiting
-let currentIncomingData = null;
-let currentIncomingPostsData = null;
+// Store received data in memory - EXACTLY like your original
+let receivedData = [];
+let receivedPostsData = []; // New storage for posts data
 
-// Endpoint to receive data from n8n
+// Endpoint to receive data from n8n - EXACTLY like your original
 app.post('/receive-data', (req, res) => {
-    console.log('📨 Received from n8n:', JSON.stringify(req.body, null, 2));
+    console.log('📨 Received from n8n:', req.body);
     
-    // Store temporarily for real-time waiting (no permanent storage)
-    currentIncomingData = {
+    // Store the data with timestamp
+    const dataWithTimestamp = {
         ...req.body,
         receivedAt: new Date().toISOString()
     };
     
-    console.log(`📦 New data received and ready for pickup`);
+    receivedData.unshift(dataWithTimestamp); // Add to beginning of array
     
     // Send success response back to n8n
     res.json({ 
         success: true, 
-        message: 'Data received successfully'
+        message: 'Data received successfully',
+        dataCount: receivedData.length
     });
 });
 
 // New endpoint to receive posts data from n8n
 app.post('/receive-posts', (req, res) => {
-    console.log('📨 Received posts data from n8n:', JSON.stringify(req.body, null, 2));
+    console.log('📨 Received posts data from n8n:', req.body);
     
-    // Store temporarily for real-time waiting
-    currentIncomingPostsData = {
+    // Store the data with timestamp
+    const dataWithTimestamp = {
         ...req.body,
         receivedAt: new Date().toISOString()
     };
     
-    console.log(`📦 New posts data received and ready for pickup`);
+    receivedPostsData.unshift(dataWithTimestamp); // Add to beginning of array
     
     // Send success response back to n8n
     res.json({ 
         success: true, 
-        message: 'Posts data received successfully'
+        message: 'Posts data received successfully',
+        dataCount: receivedPostsData.length
     });
 });
 
-// API endpoint to get current incoming data (no storage, just current)
+// API endpoint to get received data - EXACTLY like your original
 app.get('/api/received-data', (req, res) => {
-    try {
-        console.log(`📊 API request for current data`);
-        
-        if (currentIncomingData) {
-            console.log(`📤 Sending current data to frontend`);
-            res.json([currentIncomingData]); // Send as array to match original format
-        } else {
-            console.log(`📭 No current data available`);
-            res.json([]);
-        }
-    } catch (error) {
-        console.error('Error in /api/received-data:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    res.json(receivedData);
 });
 
-// API endpoint to get current incoming posts data
+// API endpoint to get received posts data
 app.get('/api/received-posts', (req, res) => {
-    try {
-        console.log(`📊 API request for current posts data`);
-        
-        if (currentIncomingPostsData) {
-            console.log(`📤 Sending current posts data to frontend`);
-            res.json([currentIncomingPostsData]); // Send as array to match original format
-        } else {
-            console.log(`📭 No current posts data available`);
-            res.json([]);
-        }
-    } catch (error) {
-        console.error('Error in /api/received-posts:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    res.json(receivedPostsData);
 });
 
 // Serve the main HTML page
