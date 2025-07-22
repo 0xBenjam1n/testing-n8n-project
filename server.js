@@ -7,11 +7,11 @@ const PORT = process.env.PORT || 5500;
 app.use(express.json());
 app.use(express.static(__dirname)); // Serve static files from current directory
 
-// Store received data in memory - EXACTLY like your original
+// Store received data in memory
 let receivedData = [];
 let receivedPostsData = []; // New storage for posts data
 
-// Endpoint to receive data from n8n - EXACTLY like your original
+// Endpoint to receive data from n8n
 app.post('/receive-data', (req, res) => {
     console.log('📨 Received from n8n:', req.body);
     
@@ -22,6 +22,11 @@ app.post('/receive-data', (req, res) => {
     };
     
     receivedData.unshift(dataWithTimestamp); // Add to beginning of array
+    
+    // Keep only last 10 entries
+    if (receivedData.length > 10) {
+        receivedData = receivedData.slice(0, 10);
+    }
     
     // Send success response back to n8n
     res.json({ 
@@ -43,6 +48,11 @@ app.post('/receive-posts', (req, res) => {
     
     receivedPostsData.unshift(dataWithTimestamp); // Add to beginning of array
     
+    // Keep only last 10 entries
+    if (receivedPostsData.length > 10) {
+        receivedPostsData = receivedPostsData.slice(0, 10);
+    }
+    
     // Send success response back to n8n
     res.json({ 
         success: true, 
@@ -51,7 +61,7 @@ app.post('/receive-posts', (req, res) => {
     });
 });
 
-// API endpoint to get received data - EXACTLY like your original
+// API endpoint to get received data
 app.get('/api/received-data', (req, res) => {
     res.json(receivedData);
 });
@@ -72,36 +82,29 @@ app.get('/health', (req, res) => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        hasCurrentData: !!currentIncomingData,
-        hasCurrentPostsData: !!currentIncomingPostsData,
-        currentDataUsername: currentIncomingData?.userInformation?.username || 'none',
+        receivedDataCount: receivedData.length,
+        receivedPostsDataCount: receivedPostsData.length,
         endpoints: {
             main: '/',
             receiveData: '/receive-data',
             receivePosts: '/receive-posts',
             apiData: '/api/received-data',
             apiPosts: '/api/received-posts',
-            health: '/health',
-            clearData: '/api/clear-data'
+            health: '/health'
         }
     });
 });
 
 // Clear data endpoint (for testing)
 app.delete('/api/clear-data', (req, res) => {
-    try {
-        currentIncomingData = null;
-        currentIncomingPostsData = null;
-        console.log('🗑️ Current data cleared');
-        
-        res.json({
-            success: true,
-            message: 'Current data cleared successfully'
-        });
-    } catch (error) {
-        console.error('Error clearing data:', error);
-        res.status(500).json({ error: 'Error clearing data' });
-    }
+    receivedData = [];
+    receivedPostsData = [];
+    console.log('🗑️ All data cleared');
+    
+    res.json({
+        success: true,
+        message: 'All data cleared successfully'
+    });
 });
 
 // Error handling
