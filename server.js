@@ -14,16 +14,43 @@ let receivedPostsData = []; // New storage for posts data
 // Helper function to extract username from data
 function extractUsername(data) {
     try {
+        console.log('🔍 Extracting username from data:', JSON.stringify(data, null, 2));
+        
         // Try different possible username fields
-        if (data.username) return data.username.toLowerCase();
-        if (data.userInformation?.username) return data.userInformation.username.toLowerCase();
-        if (data.profile?.username) return data.profile.username.toLowerCase();
+        if (data.username) {
+            console.log('✅ Found username in data.username:', data.username);
+            return data.username.toLowerCase();
+        }
+        if (data.userInformation?.username) {
+            console.log('✅ Found username in data.userInformation.username:', data.userInformation.username);
+            return data.userInformation.username.toLowerCase();
+        }
+        if (data.profile?.username) {
+            console.log('✅ Found username in data.profile.username:', data.profile.username);
+            return data.profile.username.toLowerCase();
+        }
         
-        // Try to extract from nested objects
-        const jsonStr = JSON.stringify(data).toLowerCase();
-        const usernameMatch = jsonStr.match(/"username":\s*"([^"]+)"/);
-        if (usernameMatch) return usernameMatch[1];
+        // Try to extract from nested objects more thoroughly
+        const jsonStr = JSON.stringify(data);
+        console.log('🔍 Searching in JSON string for username patterns...');
         
+        // Look for various username patterns
+        const patterns = [
+            /"username":\s*"([^"]+)"/i,
+            /"user":\s*"([^"]+)"/i,
+            /"handle":\s*"([^"]+)"/i,
+            /"account":\s*"([^"]+)"/i
+        ];
+        
+        for (const pattern of patterns) {
+            const match = jsonStr.match(pattern);
+            if (match) {
+                console.log(`✅ Found username with pattern ${pattern}:`, match[1]);
+                return match[1].toLowerCase();
+            }
+        }
+        
+        console.log('❌ No username found in data');
         return null;
     } catch (error) {
         console.warn('Error extracting username:', error);
@@ -33,21 +60,30 @@ function extractUsername(data) {
 
 // Endpoint to receive data from n8n
 app.post('/receive-data', (req, res) => {
-    console.log('📨 Received from n8n:', req.body);
+    console.log('📨 Received from n8n:', JSON.stringify(req.body, null, 2));
+    
+    // Extract username for logging
+    const extractedUsername = extractUsername(req.body);
+    console.log('🏷️ Extracted username:', extractedUsername);
     
     // Store the data with timestamp
     const dataWithTimestamp = {
         ...req.body,
-        receivedAt: new Date().toISOString()
+        receivedAt: new Date().toISOString(),
+        extractedUsername: extractedUsername // Add extracted username for easier filtering
     };
     
     receivedData.unshift(dataWithTimestamp); // Add to beginning of array
+    
+    console.log(`📦 Total stored items: ${receivedData.length}`);
+    console.log(`🏷️ Usernames in storage:`, receivedData.map(item => item.extractedUsername || 'unknown'));
     
     // Send success response back to n8n
     res.json({ 
         success: true, 
         message: 'Data received successfully',
-        dataCount: receivedData.length
+        dataCount: receivedData.length,
+        extractedUsername: extractedUsername
     });
 });
 
