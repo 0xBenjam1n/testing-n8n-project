@@ -1,4 +1,79 @@
-const express = require('express');
+// Simple validation function with enhanced requestId security
+function validateAndSanitizeResponse(data) {
+    console.log('=== VALIDATION DEBUG ===');
+    console.log('Raw received data:', JSON.stringify(data, null, 2));
+    console.log('Data keys:', Object.keys(data || {}));
+    console.log('Has check:', !!data.check);
+    console.log('Has posts:', !!data.posts);
+    console.log('Has highlights:', !!data.highlights);
+    console.log('Has both:', !!data.both);
+    
+    if (!data || typeof data !== 'object') {
+        return { valid: false, message: 'Invalid data format' };
+    }
+    
+    // Handle different wrapper types: "check", "posts", "highlights", "both"
+    let actualData = data;
+    let wrapperFound = 'none';
+    
+    if (data.check && typeof data.check === 'object') {
+        actualData = data.check;
+        wrapperFound = 'check';
+    } else if (data.posts && typeof data.posts === 'object') {
+        actualData = data.posts;
+        wrapperFound = 'posts';
+    } else if (data.highlights && typeof data.highlights === 'object') {
+        actualData = data.highlights;
+        wrapperFound = 'highlights';
+    } else if (data.both && typeof data.both === 'object') {
+        actualData = data.both;
+        wrapperFound = 'both';
+    }
+    
+    console.log('Wrapper found:', wrapperFound);
+    console.log('Actual data:', JSON.stringify(actualData, null, 2));
+    console.log('========================');
+    
+    const { requestId, result, status, message } = actualData;
+    
+    // Enhanced requestId validation for security
+    if (!requestId) {
+        return { valid: false, message: 'Missing requestId' };
+    }
+    
+    // Convert to string and validate
+    let stringRequestId = String(requestId).trim();
+    
+    // Security checks for requestId
+    if (stringRequestId.length === 0) {
+        return { valid: false, message: 'Empty requestId' };
+    }
+    
+    if (stringRequestId.length > 50) {
+        return { valid: false, message: 'RequestId too long' };
+    }
+    
+    // Check for malicious patterns in requestId
+    const maliciousPatterns = [
+        /[<>]/g,                    // HTML tags
+        /javascript:/i,             // JavaScript protocol
+        /data:/i,                   // Data protocol
+        /vbscript:/i,              // VBScript protocol
+        /on\w+\s*=/i,              // Event handlers
+        /\.\./,                     // Directory traversal
+        /[\/\\]/,                   // Path separators
+        /[\x00-\x1F\x7F]/,         // Control characters
+        /[^\w\-]/                   // Only allow alphanumeric, underscore, hyphen
+    ];
+    
+    for (const pattern of maliciousPatterns) {
+        if (pattern.test(stringRequestId)) {
+            return { valid: false, message: 'Invalid requestId format' };
+        }
+    }
+    
+    // Ensure requestId follows expected format (timestamp-randomstring)
+    if (!/^\d{13}-[a-zA-Z0-9]{5const express = require('express');
 const path = require('path');
 
 const app = express();
@@ -75,10 +150,16 @@ function validateAndSanitizeResponse(data) {
         return { valid: false, message: 'Invalid data format' };
     }
     
-    // Handle "check" wrapper if present
+    // Handle different wrapper types: "check", "posts", "highlights", "both"
     let actualData = data;
     if (data.check && typeof data.check === 'object') {
         actualData = data.check;
+    } else if (data.posts && typeof data.posts === 'object') {
+        actualData = data.posts;
+    } else if (data.highlights && typeof data.highlights === 'object') {
+        actualData = data.highlights;
+    } else if (data.both && typeof data.both === 'object') {
+        actualData = data.both;
     }
     
     const { requestId, result, status, message } = actualData;
