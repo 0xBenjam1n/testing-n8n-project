@@ -193,7 +193,7 @@
             }
         }
         
-        // Show n8n result
+        // Show n8n result with better formatting for Instagram data
         function showN8nResult(data) {
             var n8nResult = document.getElementById('n8nResult');
             var n8nResultContent = document.getElementById('n8nResultContent');
@@ -201,7 +201,7 @@
             n8nResultContent.innerHTML = '';
             
             var resultDiv = document.createElement('div');
-            resultDiv.className = 'space-y-2';
+            resultDiv.className = 'space-y-3';
             
             // Status
             if (data.status) {
@@ -210,35 +210,173 @@
                 statusLabel.className = 'font-medium text-gray-700';
                 statusLabel.textContent = 'Status: ';
                 var statusValue = document.createElement('span');
-                statusValue.className = data.status === 'success' ? 'text-green-600' : 'text-red-600';
-                statusValue.textContent = escapeHtml(data.status);
+                statusValue.className = data.status === 'success' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+                statusValue.textContent = data.status;
                 statusDiv.appendChild(statusLabel);
                 statusDiv.appendChild(statusValue);
                 resultDiv.appendChild(statusDiv);
             }
             
-            // Result
+            // Instagram Result - Parse and format if it's Instagram data
             if (data.result) {
-                var resultTextDiv = document.createElement('div');
+                var resultSection = document.createElement('div');
                 var resultLabel = document.createElement('div');
-                resultLabel.className = 'font-medium text-gray-700';
-                resultLabel.textContent = 'Result:';
-                var resultContent = document.createElement('div');
-                resultContent.className = 'bg-gray-50 p-3 rounded border mt-1';
-                resultContent.textContent = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2);
-                resultTextDiv.appendChild(resultLabel);
-                resultTextDiv.appendChild(resultContent);
-                resultDiv.appendChild(resultTextDiv);
+                resultLabel.className = 'font-medium text-gray-700 mb-2';
+                resultLabel.textContent = 'Instagram Profile Information:';
+                
+                try {
+                    var instagramData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+                    
+                    if (instagramData && instagramData.username) {
+                        // Create formatted Instagram profile display
+                        var profileDiv = document.createElement('div');
+                        profileDiv.className = 'bg-gradient-to-r from-purple-100 to-pink-100 p-4 rounded-lg border space-y-3';
+                        
+                        // Profile header
+                        var headerDiv = document.createElement('div');
+                        headerDiv.className = 'flex items-center space-x-3';
+                        
+                        if (instagramData.profilePicUrl) {
+                            var profileImg = document.createElement('img');
+                            profileImg.src = instagramData.profilePicUrl;
+                            profileImg.className = 'w-16 h-16 rounded-full border-2 border-purple-200';
+                            profileImg.alt = 'Profile Picture';
+                            headerDiv.appendChild(profileImg);
+                        }
+                        
+                        var profileInfo = document.createElement('div');
+                        
+                        var usernameDiv = document.createElement('div');
+                        usernameDiv.className = 'font-bold text-lg text-purple-800';
+                        usernameDiv.textContent = '@' + instagramData.username;
+                        profileInfo.appendChild(usernameDiv);
+                        
+                        if (instagramData.fullName) {
+                            var fullNameDiv = document.createElement('div');
+                            fullNameDiv.className = 'text-gray-700';
+                            fullNameDiv.textContent = instagramData.fullName;
+                            profileInfo.appendChild(fullNameDiv);
+                        }
+                        
+                        headerDiv.appendChild(profileInfo);
+                        profileDiv.appendChild(headerDiv);
+                        
+                        // Stats
+                        var statsDiv = document.createElement('div');
+                        statsDiv.className = 'grid grid-cols-3 gap-4 text-center bg-white rounded-lg p-3';
+                        
+                        var followersDiv = document.createElement('div');
+                        var followersCount = document.createElement('div');
+                        followersCount.className = 'font-bold text-blue-600';
+                        followersCount.textContent = (instagramData.followersCount || 0).toLocaleString();
+                        var followersLabel = document.createElement('div');
+                        followersLabel.className = 'text-sm text-gray-600';
+                        followersLabel.textContent = 'Followers';
+                        followersDiv.appendChild(followersCount);
+                        followersDiv.appendChild(followersLabel);
+                        
+                        var followingDiv = document.createElement('div');
+                        var followingCount = document.createElement('div');
+                        followingCount.className = 'font-bold text-green-600';
+                        followingCount.textContent = (instagramData.followsCount || 0).toLocaleString();
+                        var followingLabel = document.createElement('div');
+                        followingLabel.className = 'text-sm text-gray-600';
+                        followingLabel.textContent = 'Following';
+                        followingDiv.appendChild(followingCount);
+                        followingDiv.appendChild(followingLabel);
+                        
+                        var postsDiv = document.createElement('div');
+                        var postsCount = document.createElement('div');
+                        postsCount.className = 'font-bold text-purple-600';
+                        postsCount.textContent = (instagramData.postsCount || 0).toLocaleString();
+                        var postsLabel = document.createElement('div');
+                        postsLabel.className = 'text-sm text-gray-600';
+                        postsLabel.textContent = 'Posts';
+                        postsDiv.appendChild(postsCount);
+                        postsDiv.appendChild(postsLabel);
+                        
+                        statsDiv.appendChild(followersDiv);
+                        statsDiv.appendChild(followingDiv);
+                        statsDiv.appendChild(postsDiv);
+                        profileDiv.appendChild(statsDiv);
+                        
+                        // Biography
+                        if (instagramData.biography) {
+                            var bioDiv = document.createElement('div');
+                            bioDiv.className = 'bg-white rounded-lg p-3';
+                            var bioLabel = document.createElement('div');
+                            bioLabel.className = 'font-medium text-gray-700 mb-1';
+                            bioLabel.textContent = 'Biography:';
+                            var bioText = document.createElement('div');
+                            bioText.className = 'text-gray-600';
+                            bioText.textContent = instagramData.biography;
+                            bioDiv.appendChild(bioLabel);
+                            bioDiv.appendChild(bioText);
+                            profileDiv.appendChild(bioDiv);
+                        }
+                        
+                        // Account info
+                        var infoDiv = document.createElement('div');
+                        infoDiv.className = 'bg-white rounded-lg p-3 space-y-1';
+                        
+                        var accountTypeDiv = document.createElement('div');
+                        accountTypeDiv.className = 'text-sm';
+                        var typeLabel = document.createElement('span');
+                        typeLabel.className = 'font-medium text-gray-700';
+                        typeLabel.textContent = 'Account Type: ';
+                        var typeValue = document.createElement('span');
+                        typeValue.className = instagramData.private ? 'text-red-600' : 'text-green-600';
+                        typeValue.textContent = instagramData.private ? 'Private' : 'Public';
+                        accountTypeDiv.appendChild(typeLabel);
+                        accountTypeDiv.appendChild(typeValue);
+                        
+                        var verifiedDiv = document.createElement('div');
+                        verifiedDiv.className = 'text-sm';
+                        var verifiedLabel = document.createElement('span');
+                        verifiedLabel.className = 'font-medium text-gray-700';
+                        verifiedLabel.textContent = 'Verified: ';
+                        var verifiedValue = document.createElement('span');
+                        verifiedValue.className = instagramData.verified ? 'text-blue-600' : 'text-gray-600';
+                        verifiedValue.textContent = instagramData.verified ? '✓ Yes' : 'No';
+                        verifiedDiv.appendChild(verifiedLabel);
+                        verifiedDiv.appendChild(verifiedValue);
+                        
+                        infoDiv.appendChild(accountTypeDiv);
+                        infoDiv.appendChild(verifiedDiv);
+                        profileDiv.appendChild(infoDiv);
+                        
+                        resultSection.appendChild(resultLabel);
+                        resultSection.appendChild(profileDiv);
+                        
+                    } else {
+                        // Fallback for non-Instagram data
+                        var resultContent = document.createElement('div');
+                        resultContent.className = 'bg-gray-50 p-3 rounded border mt-1 max-h-40 overflow-y-auto';
+                        resultContent.textContent = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2);
+                        resultSection.appendChild(resultLabel);
+                        resultSection.appendChild(resultContent);
+                    }
+                } catch (e) {
+                    // If parsing fails, show raw result
+                    var resultContent = document.createElement('div');
+                    resultContent.className = 'bg-gray-50 p-3 rounded border mt-1 max-h-40 overflow-y-auto';
+                    resultContent.textContent = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2);
+                    resultSection.appendChild(resultLabel);
+                    resultSection.appendChild(resultContent);
+                }
+                
+                resultDiv.appendChild(resultSection);
             }
             
             // Message
-            if (data.message) {
+            if (data.message && data.message !== 'No message provided') {
                 var messageDiv = document.createElement('div');
                 var messageLabel = document.createElement('span');
                 messageLabel.className = 'font-medium text-gray-700';
                 messageLabel.textContent = 'Message: ';
                 var messageValue = document.createElement('span');
-                messageValue.textContent = escapeHtml(data.message);
+                messageValue.className = 'text-gray-600';
+                messageValue.textContent = data.message;
                 messageDiv.appendChild(messageLabel);
                 messageDiv.appendChild(messageValue);
                 resultDiv.appendChild(messageDiv);
@@ -247,7 +385,7 @@
             // Timestamp
             if (data.timestamp) {
                 var timeDiv = document.createElement('div');
-                timeDiv.className = 'text-sm text-gray-500';
+                timeDiv.className = 'text-sm text-gray-500 pt-2 border-t';
                 timeDiv.textContent = 'Processed at: ' + new Date(data.timestamp).toLocaleString();
                 resultDiv.appendChild(timeDiv);
             }
