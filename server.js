@@ -1,103 +1,85 @@
 const express = require('express');
 const path = require('path');
-const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'", "https://oxbenjam1n.app.n8n.cloud"],
-            fontSrc: ["'self'", "https:"],
-            objectSrc: ["'none'"],
-            mediaSrc: ["'self'"],
-            frameSrc: ["'none'"],
-        },
-    },
-    crossOriginEmbedderPolicy: false
-}));
+// Security: Store responses by request ID with TTL
+const responses = new Map();
+const RESPONSE_TTL = 30 * 60 * 1000; // 30 minutes
 
-// Rate limiting
-const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
-    message: { error: 'Too many requests from this IP, please try again later.' },
-    standardHeaders: true,
-    legacyHeaders: false
+// Middleware for parsing JSON
+app.use(express.json({ limit: '1mb' }));
+
+// Security headers
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
 });
 
-const resultLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: 30, // Limit each IP to 30 requests per minute for result polling
-    message: { error: 'Too many polling requests, please slow down.' },
-    standardHeaders: true,
-    legacyHeaders: false
-});
+// Rate limiting for receive-data endpoint
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX = 20; // max 20 requests per minute per IP
 
-app.use(generalLimiter);
-app.use('/poll-result', resultLimiter);
+function checkRateLimit(ip) {
+    const now = Date.now();
+    const windowStart = now - RATE_LIMIT_WINDOW;
+    
+    if (!rateLimitMap.has(ip)) {
+        rateLimitMap.set(ip, []);
+    }
+    
+    const requests = rateLimitMap.get(ip);
+    // Remove old requests
+    const validRequests = requests.filter(time => time > windowStart);
+    rateLimitMap.set(ip, validRequests);
+    
+    return validRequests.length < RATE_LIMIT_MAX;
+}
 
-// Middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// In-memory storage for results (use Redis in production)
-const resultStore = new Map();
-
-// Cleanup old results every hour
+// Clean up old responses and rate limit data
 setInterval(() => {
     const now = Date.now();
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
     
-    for (const [key, value] of resultStore.entries()) {
-        if (now - value.timestamp > maxAge) {
-            resultStore.delete(key);
+    // Clean up old responses
+    for (const [key, value] of responses.entries()) {
+        if (now - value.timestamp > RESPONSE_TTL) {
+            responses.delete(key);
         }
     }
-}, 60 * 60 * 1000);
+    
+    // Clean up old rate limit data
+    const windowStart = now - RATE_LIMIT_WINDOW;
+    for (const [ip, requests] of rateLimitMap.entries()) {
+        const validRequests = requests.filter(time => time > windowStart);
+        if (validRequests.length === 0) {
+            rateLimitMap.delete(ip);
+        } else {
+            rateLimitMap.set(ip, validRequests);
+        }
+    }
+}, 5 * 60 * 1000);
+
+// Serve static files from root directory
+app.use(express.static(__dirname));
 
 // Simple validation function with enhanced requestId security
 function validateAndSanitizeResponse(data) {
-    console.log('=== VALIDATION DEBUG ===');
-    console.log('Raw received data:', JSON.stringify(data, null, 2));
-    console.log('Data keys:', Object.keys(data || {}));
-    console.log('Has check:', !!data.check);
-    console.log('Has posts:', !!data.posts);
-    console.log('Has highlights:', !!data.highlights);
-    console.log('Has both:', !!data.both);
+    console.log('Received data:', JSON.stringify(data, null, 2));
     
     if (!data || typeof data !== 'object') {
         return { valid: false, message: 'Invalid data format' };
     }
     
-    // Handle different wrapper types: "check", "posts", "highlights", "both"
+    // Handle "check" wrapper if present
     let actualData = data;
-    let wrapperFound = 'none';
-    
     if (data.check && typeof data.check === 'object') {
         actualData = data.check;
-        wrapperFound = 'check';
-    } else if (data.posts && typeof data.posts === 'object') {
-        actualData = data.posts;
-        wrapperFound = 'posts';
-    } else if (data.highlights && typeof data.highlights === 'object') {
-        actualData = data.highlights;
-        wrapperFound = 'highlights';
-    } else if (data.both && typeof data.both === 'object') {
-        actualData = data.both;
-        wrapperFound = 'both';
     }
-    
-    console.log('Wrapper found:', wrapperFound);
-    console.log('Actual data:', JSON.stringify(actualData, null, 2));
-    console.log('========================');
     
     const { requestId, result, status, message } = actualData;
     
@@ -154,140 +136,213 @@ function validateAndSanitizeResponse(data) {
 }
 
 // Endpoint to receive data from n8n
-app.post('/poll-result/:requestId', (req, res) => {
+app.post('/receive-data', (req, res) => {
+    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
+    if (!checkRateLimit(clientIP)) {
+        return res.status(429).json({
+            error: 'Too many requests',
+            message: 'Rate limit exceeded'
+        });
+    }
+    
+    rateLimitMap.get(clientIP).push(Date.now());
+    
     try {
-        console.log('\n=== N8N DATA RECEIVED ===');
-        console.log('Request ID from URL:', req.params.requestId);
-        console.log('Request body:', JSON.stringify(req.body, null, 2));
-        console.log('Request headers:', req.headers);
-        
-        const requestId = req.params.requestId;
-        const data = req.body;
-        
-        // Validate the incoming data
-        const validation = validateAndSanitizeResponse(data);
+        const validation = validateAndSanitizeResponse(req.body);
         if (!validation.valid) {
-            console.error('Validation failed:', validation.message);
-            return res.status(400).json({ 
-                success: false, 
-                error: validation.message 
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: validation.message
             });
         }
         
-        console.log('Validation successful, storing data for requestId:', requestId);
+        const sanitizedData = validation.data;
+        responses.set(sanitizedData.requestId, sanitizedData);
         
-        // Store the result
-        resultStore.set(requestId, validation.data);
+        console.log(`Stored response for requestId: ${sanitizedData.requestId}`);
         
-        console.log('Data stored successfully');
-        console.log('Current store size:', resultStore.size);
-        console.log('========================\n');
-        
-        res.json({ 
-            success: true, 
-            message: 'Data received and stored successfully' 
+        res.status(200).json({
+            success: true,
+            message: 'Data received successfully',
+            requestId: sanitizedData.requestId
         });
         
     } catch (error) {
-        console.error('Error processing n8n data:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: 'Internal server error' 
+        console.error('Error processing received data:', error.message);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to process data'
         });
     }
 });
 
-// Endpoint for polling results
-app.get('/poll-result/:requestId', (req, res) => {
+// Alternative endpoint for n8n (if configured to send to poll-result)
+app.post('/poll-result/:requestId', (req, res) => {
+    const { requestId } = req.params;
+    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
+    if (!checkRateLimit(clientIP)) {
+        return res.status(429).json({
+            error: 'Too many requests',
+            message: 'Rate limit exceeded'
+        });
+    }
+    
+    rateLimitMap.get(clientIP).push(Date.now());
+    
     try {
-        const requestId = req.params.requestId;
-        console.log('Polling request for ID:', requestId);
+        const bodyWithRequestId = {
+            ...req.body,
+            requestId: requestId
+        };
         
-        // Security validation for requestId in polling
-        if (!requestId || typeof requestId !== 'string') {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Invalid requestId' 
+        const validation = validateAndSanitizeResponse(bodyWithRequestId);
+        if (!validation.valid) {
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: validation.message
             });
         }
         
-        const trimmedId = requestId.trim();
-        if (trimmedId.length === 0 || trimmedId.length > 50) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'RequestId length invalid' 
-            });
-        }
+        const sanitizedData = validation.data;
+        responses.set(sanitizedData.requestId, sanitizedData);
         
-        // Check for malicious patterns
-        if (!/^\d{13}-[a-zA-Z0-9]{5,20}$/.test(trimmedId)) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'RequestId format invalid' 
-            });
-        }
+        console.log(`Stored response for requestId: ${sanitizedData.requestId}`);
         
-        const result = resultStore.get(trimmedId);
-        
-        if (result) {
-            console.log('Result found for ID:', trimmedId);
-            console.log('Returning result:', JSON.stringify(result, null, 2));
-            
-            // Remove the result after sending it (one-time use)
-            resultStore.delete(trimmedId);
-            
-            res.json({
-                success: true,
-                data: result
-            });
-        } else {
-            console.log('No result found for ID:', trimmedId);
-            console.log('Available IDs in store:', Array.from(resultStore.keys()));
-            
-            // Return 202 to indicate processing is still ongoing
-            res.status(202).json({
-                success: false,
-                message: 'Processing in progress'
-            });
-        }
+        res.status(200).json({
+            success: true,
+            message: 'Data received successfully',
+            requestId: sanitizedData.requestId
+        });
         
     } catch (error) {
-        console.error('Error polling result:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: 'Internal server error' 
+        console.error('Error processing received data:', error.message);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to process data'
         });
     }
 });
 
-// Health check endpoint
+// Endpoint to poll for results by requestId (with security validation)
+app.get('/poll-result/:requestId', (req, res) => {
+    const { requestId } = req.params;
+    
+    // Security: Validate requestId format from URL parameter
+    if (!requestId || typeof requestId !== 'string') {
+        return res.status(400).json({
+            error: 'Invalid requestId parameter'
+        });
+    }
+    
+    const trimmedRequestId = requestId.trim();
+    
+    // Security checks for URL parameter
+    if (trimmedRequestId.length === 0 || trimmedRequestId.length > 50) {
+        return res.status(400).json({
+            error: 'Invalid requestId length'
+        });
+    }
+    
+    // Check for malicious patterns in URL requestId
+    const maliciousPatterns = [
+        /[<>]/g,                    // HTML tags
+        /javascript:/i,             // JavaScript protocol
+        /data:/i,                   // Data protocol
+        /vbscript:/i,              // VBScript protocol
+        /on\w+\s*=/i,              // Event handlers
+        /\.\./,                     // Directory traversal
+        /[\/\\]/,                   // Path separators (except the one in URL)
+        /[\x00-\x1F\x7F]/,         // Control characters
+        /[^\w\-]/                   // Only allow alphanumeric, underscore, hyphen
+    ];
+    
+    for (const pattern of maliciousPatterns) {
+        if (pattern.test(trimmedRequestId)) {
+            return res.status(400).json({
+                error: 'Invalid requestId format'
+            });
+        }
+    }
+    
+    // Ensure requestId follows expected format
+    if (!/^\d{13}-[a-zA-Z0-9]{5,20}$/.test(trimmedRequestId)) {
+        return res.status(400).json({
+            error: 'RequestId does not match expected format'
+        });
+    }
+    
+    console.log(`Polling for requestId: ${trimmedRequestId}`);
+    
+    const response = responses.get(trimmedRequestId);
+    
+    if (response) {
+        console.log(`Found response for ${trimmedRequestId}`);
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                result: response.result,
+                status: response.status,
+                message: response.message,
+                timestamp: response.timestamp
+            }
+        });
+    } else {
+        res.status(202).json({
+            success: false,
+            message: 'Result not ready yet'
+        });
+    }
+});
+
+// Health check endpoint for Railway
 app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'healthy', 
+    res.status(200).json({ 
+        status: 'OK', 
         timestamp: new Date().toISOString(),
-        activeResults: resultStore.size
+        activeResponses: responses.size
     });
 });
 
-// Default route
+// Debug route
+app.get('/debug', (req, res) => {
+    const fs = require('fs');
+    const rootPath = __dirname;
+    
+    try {
+        const files = fs.readdirSync(rootPath);
+        res.json({
+            rootPath,
+            files,
+            indexExists: fs.existsSync(path.join(rootPath, 'index.html')),
+            activeResponses: responses.size,
+            storedKeys: Array.from(responses.keys())
+        });
+    } catch (error) {
+        res.json({ error: error.message, rootPath });
+    }
+});
+
+// Serve the main HTML file
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    const filePath = path.join(__dirname, 'index.html');
+    
+    if (require('fs').existsSync(filePath)) {
+        res.sendFile(filePath);
+    } else {
+        res.send('<h1>File not found</h1><p>Please make sure index.html exists in the root directory.</p>');
+    }
 });
 
-// 404 handler
+// Handle 404s
 app.use((req, res) => {
-    res.status(404).json({ error: 'Endpoint not found' });
+    res.status(404).send('<h1>404 - Page Not Found</h1>');
 });
 
-// Error handler
-app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-});
-
-app.listen(PORT, () => {
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
-
-module.exports = app;
