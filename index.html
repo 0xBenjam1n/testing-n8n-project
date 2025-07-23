@@ -40,6 +40,52 @@
         <div id="n8nResult" class="mt-6 p-4 rounded-md hidden">
             <h3 class="font-semibold mb-2">Processing Result:</h3>
             <div id="n8nResultContent"></div>
+            
+            <!-- Confirmation section -->
+            <div id="confirmationSection" class="mt-4 p-4 bg-blue-50 rounded-lg border hidden">
+                <div class="flex items-center space-x-2 mb-3">
+                    <input type="checkbox" id="confirmOwnership" class="w-4 h-4 text-blue-600 rounded">
+                    <label for="confirmOwnership" class="text-sm font-medium text-gray-700">
+                        Yes, this is my page
+                    </label>
+                </div>
+                <button 
+                    id="confirmButton" 
+                    class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    disabled
+                >
+                    Confirm
+                </button>
+            </div>
+        </div>
+        
+        <!-- Second page for processing options -->
+        <div id="processingPage" class="mt-6 p-4 rounded-md bg-gray-50 border hidden">
+            <h3 class="font-semibold mb-4 text-lg">Select Processing Options:</h3>
+            
+            <div class="space-y-4">
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="processPosts" class="w-4 h-4 text-blue-600 rounded">
+                    <label for="processPosts" class="text-sm font-medium text-gray-700">
+                        Posts
+                    </label>
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="processHighlights" class="w-4 h-4 text-blue-600 rounded">
+                    <label for="processHighlights" class="text-sm font-medium text-gray-700">
+                        Highlights
+                    </label>
+                </div>
+            </div>
+            
+            <button 
+                id="processButton" 
+                class="mt-4 w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                disabled
+            >
+                Process
+            </button>
         </div>
         
         <div id="loading" class="mt-6 text-center hidden">
@@ -197,6 +243,7 @@
         function showN8nResult(data) {
             var n8nResult = document.getElementById('n8nResult');
             var n8nResultContent = document.getElementById('n8nResultContent');
+            var confirmationSection = document.getElementById('confirmationSection');
             
             n8nResultContent.innerHTML = '';
             
@@ -256,8 +303,76 @@
             
             n8nResultContent.appendChild(resultDiv);
             n8nResult.classList.remove('hidden');
+            
+            // Show confirmation section only if status is success
+            if (data.status === 'success') {
+                confirmationSection.classList.remove('hidden');
+            }
+            
             n8nResult.scrollIntoView({ behavior: 'smooth' });
         }
+        
+        // Handle confirmation checkbox and button
+        document.getElementById('confirmOwnership').addEventListener('change', function() {
+            var confirmButton = document.getElementById('confirmButton');
+            if (this.checked) {
+                confirmButton.disabled = false;
+            } else {
+                confirmButton.disabled = true;
+            }
+        });
+        
+        // Handle confirm button click
+        document.getElementById('confirmButton').addEventListener('click', function() {
+            var n8nResult = document.getElementById('n8nResult');
+            var processingPage = document.getElementById('processingPage');
+            
+            // Hide the result page
+            n8nResult.classList.add('hidden');
+            
+            // Show the processing options page
+            processingPage.classList.remove('hidden');
+            processingPage.scrollIntoView({ behavior: 'smooth' });
+        });
+        
+        // Handle processing options checkboxes
+        function updateProcessButton() {
+            var postsChecked = document.getElementById('processPosts').checked;
+            var highlightsChecked = document.getElementById('processHighlights').checked;
+            var processButton = document.getElementById('processButton');
+            
+            if (postsChecked || highlightsChecked) {
+                processButton.disabled = false;
+            } else {
+                processButton.disabled = true;
+            }
+        }
+        
+        document.getElementById('processPosts').addEventListener('change', updateProcessButton);
+        document.getElementById('processHighlights').addEventListener('change', updateProcessButton);
+        
+        // Handle process button click
+        document.getElementById('processButton').addEventListener('click', function() {
+            var postsChecked = document.getElementById('processPosts').checked;
+            var highlightsChecked = document.getElementById('processHighlights').checked;
+            
+            var selectedOptions = [];
+            if (postsChecked) selectedOptions.push('posts');
+            if (highlightsChecked) selectedOptions.push('highlights');
+            
+            console.log('Processing selected options:', selectedOptions);
+            
+            // You can add the processing logic here
+            alert('Processing: ' + selectedOptions.join(', '));
+            
+            // Reset for next use
+            document.getElementById('processPosts').checked = false;
+            document.getElementById('processHighlights').checked = false;
+            document.getElementById('confirmOwnership').checked = false;
+            document.getElementById('confirmButton').disabled = true;
+            document.getElementById('processButton').disabled = true;
+            document.getElementById('processingPage').classList.add('hidden');
+        });
         
         // Show result message
         function showResult(message, isSuccess) {
