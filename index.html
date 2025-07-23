@@ -239,10 +239,8 @@
             }
         }
         
-        // Global variables to store Instagram data and original username
-        var instagramUsername = '';
-        var instagramPostsCount = 0;
-        var instagramHighlightsCount = 0;
+        // Global variables to store Instagram data
+        var storedInstagramData = null;
         
         // Show n8n result (simple format)
         function showN8nResult(data) {
@@ -250,21 +248,75 @@
             var n8nResultContent = document.getElementById('n8nResultContent');
             var confirmationSection = document.getElementById('confirmationSection');
             
-            // Extract and store the data we need from Instagram response
-            try {
-                var instagramData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-                instagramUsername = instagramData.username || '';
-                instagramPostsCount = instagramData.postsCount || 0;
-                instagramHighlightsCount = instagramData.highlightReelCount || 0;
-                
-                console.log('Stored Instagram data:', {
-                    username: instagramUsername,
-                    postsCount: instagramPostsCount,
-                    highlightsCount: instagramHighlightsCount
-                });
-            } catch (e) {
-                console.error('Error parsing Instagram data:', e);
+            // Store the Instagram data for later use
+            storedInstagramData = data;
+            
+            n8nResultContent.innerHTML = '';
+            
+            var resultDiv = document.createElement('div');
+            resultDiv.className = 'space-y-2';
+            
+            // Status
+            if (data.status) {
+                var statusDiv = document.createElement('div');
+                var statusLabel = document.createElement('span');
+                statusLabel.className = 'font-medium text-gray-700';
+                statusLabel.textContent = 'Status: ';
+                var statusValue = document.createElement('span');
+                statusValue.className = data.status === 'success' ? 'text-green-600' : 'text-red-600';
+                statusValue.textContent = data.status;
+                statusDiv.appendChild(statusLabel);
+                statusDiv.appendChild(statusValue);
+                resultDiv.appendChild(statusDiv);
             }
+            
+            // Result
+            if (data.result) {
+                var resultTextDiv = document.createElement('div');
+                var resultLabel = document.createElement('div');
+                resultLabel.className = 'font-medium text-gray-700';
+                resultLabel.textContent = 'Result:';
+                var resultContent = document.createElement('div');
+                resultContent.className = 'bg-gray-50 p-3 rounded border mt-1 max-h-60 overflow-y-auto';
+                resultContent.style.fontSize = '12px';
+                resultContent.style.fontFamily = 'monospace';
+                resultContent.textContent = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2);
+                resultTextDiv.appendChild(resultLabel);
+                resultTextDiv.appendChild(resultContent);
+                resultDiv.appendChild(resultTextDiv);
+            }
+            
+            // Message
+            if (data.message && data.message !== 'No message provided') {
+                var messageDiv = document.createElement('div');
+                var messageLabel = document.createElement('span');
+                messageLabel.className = 'font-medium text-gray-700';
+                messageLabel.textContent = 'Message: ';
+                var messageValue = document.createElement('span');
+                messageValue.textContent = data.message;
+                messageDiv.appendChild(messageLabel);
+                messageDiv.appendChild(messageValue);
+                resultDiv.appendChild(messageDiv);
+            }
+            
+            // Timestamp
+            if (data.timestamp) {
+                var timeDiv = document.createElement('div');
+                timeDiv.className = 'text-sm text-gray-500';
+                timeDiv.textContent = 'Processed at: ' + new Date(data.timestamp).toLocaleString();
+                resultDiv.appendChild(timeDiv);
+            }
+            
+            n8nResultContent.appendChild(resultDiv);
+            n8nResult.classList.remove('hidden');
+            
+            // Show confirmation section only if status is success
+            if (data.status === 'success') {
+                confirmationSection.classList.remove('hidden');
+            }
+            
+            n8nResult.scrollIntoView({ behavior: 'smooth' });
+        }
             
             n8nResultContent.innerHTML = '';
             
