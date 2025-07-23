@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 3000;
 
 // Security: Store responses by request ID with TTL
 const responses = new Map();
-const RESPONSE_TTL = 10 * 60 * 1000; // 10 minutes
+const RESPONSE_TTL = 30 * 60 * 1000; // 30 minutes (increased from 10)
 
 // Middleware for parsing JSON
 app.use(express.json({ limit: '1mb' })); // Limit payload size for security
@@ -44,12 +44,19 @@ function checkRateLimit(ip) {
 // Clean up old responses and rate limit data
 setInterval(() => {
     const now = Date.now();
+    let cleanedCount = 0;
     
     // Clean up old responses
     for (const [key, value] of responses.entries()) {
         if (now - value.timestamp > RESPONSE_TTL) {
             responses.delete(key);
+            cleanedCount++;
+            console.log(`🗑️ Cleaned expired response: ${key}`);
         }
+    }
+    
+    if (cleanedCount > 0) {
+        console.log(`🧹 Cleaned ${cleanedCount} expired responses. Remaining: ${responses.size}`);
     }
     
     // Clean up old rate limit data
@@ -62,7 +69,7 @@ setInterval(() => {
             rateLimitMap.set(ip, validRequests);
         }
     }
-}, 60000); // Clean every minute
+}, 5 * 60 * 1000); // Clean every 5 minutes (instead of 1 minute)
 
 // Serve static files from root directory
 app.use(express.static(__dirname));
@@ -168,8 +175,7 @@ app.post('/poll-result/:requestId', (req, res) => {
     const { requestId } = req.params;
     const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
     
-    console.log(`=== POST /poll-result/${requestId} ===`);
-    console.log('URL requestId:', requestId);
+    console.log(`📨 Received POST to /poll-result/${requestId}`);
     console.log('Body:', JSON.stringify(req.body, null, 2));
     
     // Security: Rate limiting
@@ -188,9 +194,6 @@ app.post('/poll-result/:requestId', (req, res) => {
         const bodyRequestId = req.body.requestId;
         const finalRequestId = bodyRequestId || requestId;
         
-        console.log('Body requestId:', bodyRequestId);
-        console.log('Final requestId to use:', finalRequestId);
-        
         // Add requestId to body if not present
         const bodyWithRequestId = {
             ...req.body,
@@ -200,7 +203,7 @@ app.post('/poll-result/:requestId', (req, res) => {
         // Validate and sanitize incoming data
         const validation = validateAndSanitizeResponse(bodyWithRequestId);
         if (!validation.valid) {
-            console.log('Validation failed:', validation.message);
+            console.log('❌ Validation failed:', validation.message);
             return res.status(400).json({
                 error: 'Bad Request',
                 message: 'Invalid data format'
@@ -213,7 +216,8 @@ app.post('/poll-result/:requestId', (req, res) => {
         responses.set(sanitizedData.requestId, sanitizedData);
         
         console.log(`✅ Stored response for requestId: "${sanitizedData.requestId}"`);
-        console.log('Current stored keys:', Array.from(responses.keys()));
+        console.log(`📊 Total stored responses: ${responses.size}`);
+        console.log(`🔑 Available keys: [${Array.from(responses.keys()).join(', ')}]`);
         
         res.status(200).json({
             success: true,
@@ -222,7 +226,7 @@ app.post('/poll-result/:requestId', (req, res) => {
         });
         
     } catch (error) {
-        console.error('Error processing received data:', error.message);
+        console.error('❌ Error processing received data:', error.message);
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to process data'
@@ -234,9 +238,9 @@ app.post('/poll-result/:requestId', (req, res) => {
 app.get('/poll-result/:requestId', (req, res) => {
     const { requestId } = req.params;
     
-    console.log(`=== GET /poll-result/${requestId} ===`);
-    console.log('Requested requestId:', requestId);
-    console.log('Available response keys:', Array.from(responses.keys()));
+    console.log(`🔍 Polling for requestId: ${requestId}`);
+    console.log(`📊 Total stored: ${responses.size}`);
+    console.log(`🔑 Available keys: [${Array.from(responses.keys()).join(', ')}]`);
     
     // Try exact match first
     let response = responses.get(requestId);
@@ -253,24 +257,14 @@ app.get('/poll-result/:requestId', (req, res) => {
                 response = responses.get(numberRequestId.toString());
             }
         }
-        
-        if (!response) {
-            // Debug: show what keys we have vs what was requested
-            console.log('❌ No match found');
-            console.log('Looking for:', requestId, typeof requestId);
-            console.log('Available keys:');
-            responses.forEach((value, key) => {
-                console.log(`  - "${key}" (${typeof key})`);
-            });
-        }
     }
     
     if (response) {
         console.log(`✅ Found response for "${requestId}"`);
-        // Return the result and remove it (one-time use)
-        responses.delete(requestId);
-        // Also try to delete by string version
-        responses.delete(String(requestId));
+        console.log(`⏰ Data age: ${((Date.now() - response.timestamp) / 1000).toFixed(1)} seconds`);
+        
+        // Return the result but DON'T delete it yet (for debugging)
+        // responses.delete(requestId);
         
         res.status(200).json({
             success: true,
@@ -283,12 +277,14 @@ app.get('/poll-result/:requestId', (req, res) => {
         });
     } else {
         console.log(`❌ No response found for "${requestId}"`);
+        
         res.status(202).json({
             success: false,
             message: 'Result not ready yet',
             debug: {
                 requestedId: requestId,
-                availableIds: Array.from(responses.keys())
+                availableIds: Array.from(responses.keys()),
+                totalStored: responses.size
             }
         });
     }
@@ -303,7 +299,95 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Test endpoint to manually send data (for debugging)
+// BEFORE the catch-all middleware, add this specific check:
+app.post('*', (req, res, next) => {
+    console.log('🚨 UNHANDLED POST REQUEST:');
+    console.log('Path:', req.path);
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('Headers:', req.headers);
+    
+    // If it's a poll-result path, try to handle it
+    const pollResultMatch = req.path.match(/^\/poll-result\/(.+)$/);
+    if (pollResultMatch) {
+        const requestId = pollResultMatch[1];
+        console.log(`📍 This looks like n8n trying to send to poll-result: ${requestId}`);
+        
+        // Manually store the data
+        const testData = {
+            requestId: requestId,
+            result: req.body.result || req.body,
+            status: req.body.status || 'success',
+            message: req.body.message || 'Data received via catch-all',
+            timestamp: Date.now()
+        };
+        
+        responses.set(requestId, testData);
+        console.log(`✅ Stored via catch-all for: ${requestId}`);
+        
+        return res.json({
+            success: true,
+            message: 'Data received via catch-all',
+            requestId: requestId
+        });
+    }
+    
+    next();
+});
+
+// Catch-all debug endpoint to see ALL POST requests
+app.use((req, res, next) => {
+    if (req.method === 'POST') {
+        console.log('=== INCOMING POST REQUEST ===');
+        console.log('URL:', req.url);
+        console.log('Headers:', JSON.stringify(req.headers, null, 2));
+        console.log('Body:', JSON.stringify(req.body, null, 2));
+        console.log('=========================');
+    }
+    next();
+});
+
+// Test endpoint to manually store data
+app.post('/test-store/:requestId', (req, res) => {
+    const { requestId } = req.params;
+    
+    const testData = {
+        requestId: requestId,
+        result: req.body.result || { test: 'This is test data', success: true },
+        status: req.body.status || 'success',
+        message: req.body.message || 'Test data stored',
+        timestamp: Date.now()
+    };
+    
+    console.log(`📝 MANUALLY storing test data for: ${requestId}`);
+    responses.set(requestId, testData);
+    
+    console.log('✅ Stored. Available keys now:', Array.from(responses.keys()));
+    
+    res.json({
+        success: true,
+        message: 'Test data stored',
+        storedKey: requestId,
+        availableKeys: Array.from(responses.keys())
+    });
+});
+
+// Debug endpoint to see all stored data
+app.get('/debug-storage', (req, res) => {
+    const allData = {};
+    responses.forEach((value, key) => {
+        allData[key] = {
+            timestamp: value.timestamp,
+            status: value.status,
+            hasResult: !!value.result
+        };
+    });
+    
+    res.json({
+        totalStored: responses.size,
+        keys: Array.from(responses.keys()),
+        data: allData
+    });
+});
 app.post('/test-send', (req, res) => {
     const testData = {
         requestId: req.body.requestId || 'test-123-abc',
