@@ -240,9 +240,9 @@
         }
         
         // Global variables to store Instagram data and original username
-        var currentInstagramData = null;
-        var originalUsername = '';
-        var currentRequestId = '';
+        var instagramUsername = '';
+        var instagramPostsCount = 0;
+        var instagramHighlightsCount = 0;
         
         // Show n8n result (simple format)
         function showN8nResult(data) {
@@ -250,19 +250,20 @@
             var n8nResultContent = document.getElementById('n8nResultContent');
             var confirmationSection = document.getElementById('confirmationSection');
             
-            console.log('showN8nResult called with data:', data);
-            console.log('Current stored values before processing result:', {
-                originalUsername: originalUsername,
-                currentRequestId: currentRequestId
-            });
-            
-            // Store the Instagram data globally for later use
+            // Extract and store the data we need from Instagram response
             try {
-                currentInstagramData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-                console.log('Instagram data stored:', currentInstagramData);
+                var instagramData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+                instagramUsername = instagramData.username || '';
+                instagramPostsCount = instagramData.postsCount || 0;
+                instagramHighlightsCount = instagramData.highlightReelCount || 0;
+                
+                console.log('Stored Instagram data:', {
+                    username: instagramUsername,
+                    postsCount: instagramPostsCount,
+                    highlightsCount: instagramHighlightsCount
+                });
             } catch (e) {
-                currentInstagramData = data.result;
-                console.log('Instagram data stored (fallback):', currentInstagramData);
+                console.error('Error parsing Instagram data:', e);
             }
             
             n8nResultContent.innerHTML = '';
