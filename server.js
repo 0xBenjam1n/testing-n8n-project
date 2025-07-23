@@ -69,30 +69,48 @@ app.use(express.static(__dirname));
 
 // Security: Validate and sanitize incoming data
 function validateAndSanitizeResponse(data) {
+    console.log('Raw received data:', JSON.stringify(data, null, 2));
+    
     if (!data || typeof data !== 'object') {
         return { valid: false, message: 'Invalid data format' };
     }
     
     const { requestId, result, status, message } = data;
     
-    // Validate required fields
-    if (!requestId || typeof requestId !== 'string') {
+    console.log('Extracted fields:', { requestId, result: typeof result, status, message });
+    
+    // Validate required fields - convert requestId to string if it's a number
+    let stringRequestId;
+    if (typeof requestId === 'string') {
+        stringRequestId = requestId;
+    } else if (typeof requestId === 'number') {
+        stringRequestId = requestId.toString();
+    } else if (requestId) {
+        stringRequestId = String(requestId);
+    } else {
         return { valid: false, message: 'Missing or invalid requestId' };
     }
     
-    // Validate requestId format
-    if (!/^[0-9]+-[a-zA-Z0-9]+$/.test(requestId)) {
-        return { valid: false, message: 'Invalid requestId format' };
+    // Validate requestId format after converting to string
+    if (stringRequestId.length === 0) {
+        return { valid: false, message: 'Empty requestId' };
     }
     
-    // Sanitize data
+    // Sanitize data with better handling
     const sanitizedData = {
-        requestId: requestId.substring(0, 50), // Limit length
-        result: typeof result === 'string' ? result.substring(0, 1000) : result,
-        status: typeof status === 'string' ? status.substring(0, 20) : 'unknown',
-        message: typeof message === 'string' ? message.substring(0, 500) : '',
+        requestId: stringRequestId.substring(0, 50), // Convert to string and limit length
+        result: result !== undefined ? (typeof result === 'string' ? result.substring(0, 5000) : JSON.stringify(result).substring(0, 5000)) : 'No result provided',
+        status: status !== undefined ? String(status).substring(0, 20) : 'unknown',
+        message: message !== undefined ? String(message).substring(0, 500) : 'No message provided',
         timestamp: Date.now()
     };
+    
+    console.log('Sanitized data:', {
+        requestId: sanitizedData.requestId,
+        resultLength: sanitizedData.result.length,
+        status: sanitizedData.status,
+        message: sanitizedData.message
+    });
     
     return { valid: true, data: sanitizedData };
 }
@@ -206,16 +224,20 @@ app.post('/poll-result/:requestId', (req, res) => {
 app.get('/poll-result/:requestId', (req, res) => {
     const { requestId } = req.params;
     
-    // Security: Validate requestId format
-    if (!requestId || !/^[0-9]+-[a-zA-Z0-9]+$/.test(requestId)) {
+    // Security: Validate requestId format - more lenient now
+    if (!requestId || requestId.length === 0) {
         return res.status(400).json({
             error: 'Invalid requestId format'
         });
     }
     
+    console.log(`Polling for requestId: ${requestId}`);
+    console.log(`Available responses: ${Array.from(responses.keys()).join(', ')}`);
+    
     const response = responses.get(requestId);
     
     if (response) {
+        console.log(`Found response for ${requestId}:`, response);
         // Return the result and remove it (one-time use)
         responses.delete(requestId);
         res.status(200).json({
@@ -228,6 +250,7 @@ app.get('/poll-result/:requestId', (req, res) => {
             }
         });
     } else {
+        console.log(`No response found for ${requestId}`);
         res.status(202).json({
             success: false,
             message: 'Result not ready yet'
@@ -244,7 +267,49 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Debug route to check file structure
+// Test endpoint to manually send data (for debugging)
+app.post('/test-send', (req, res) => {
+    const testData = {
+        requestId: req.body.requestId || 'test-123-abc',
+        result: req.body.result || { message: 'This is a test result from Instagram API', username: 'testuser', followers: 1000 },
+        status: 'success',
+        message: 'Test data sent successfully'
+    };
+    
+    console.log('Sending test data:', testData);
+    
+    // Store the test data
+    const validation = validateAndSanitizeResponse(testData);
+    if (validation.valid) {
+        responses.set(validation.data.requestId, validation.data);
+        res.status(200).json({
+            success: true,
+            message: 'Test data stored',
+            data: testData
+        });
+    } else {
+        res.status(400).json({
+            success: false,
+            message: validation.message
+        });
+    }
+});
+
+// Debug endpoint to see what we're receiving
+app.post('/debug-receive', (req, res) => {
+    console.log('=== DEBUG RECEIVE ===');
+    console.log('Headers:', req.headers);
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('Raw body type:', typeof req.body);
+    console.log('Body keys:', Object.keys(req.body || {}));
+    console.log('==================');
+    
+    res.status(200).json({
+        success: true,
+        message: 'Debug data logged',
+        received: req.body
+    });
+});
 app.get('/debug', (req, res) => {
     const fs = require('fs');
     const rootPath = __dirname;
