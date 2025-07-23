@@ -228,6 +228,52 @@
                         showLoading(false);
                     }
                 });
+        
+        // Handle confirmation checkbox and button
+        document.getElementById('confirmOwnership').addEventListener('change', function() {
+            var confirmButton = document.getElementById('confirmButton');
+            if (this.checked) {
+                confirmButton.disabled = false;
+            } else {
+                confirmButton.disabled = true;
+            }
+        });
+        
+        // Handle confirm button click
+        document.getElementById('confirmButton').addEventListener('click', function() {
+            var n8nResult = document.getElementById('n8nResult');
+            var processingPage = document.getElementById('processingPage');
+            
+            // Hide the result page
+            n8nResult.classList.add('hidden');
+            
+            // Show the processing options page
+            processingPage.classList.remove('hidden');
+            processingPage.scrollIntoView({ behavior: 'smooth' });
+        });
+        
+        // Handle processing options checkboxes
+        function updateProcessButton() {
+            var postsChecked = document.getElementById('processPosts').checked;
+            var highlightsChecked = document.getElementById('processHighlights').checked;
+            var processButton = document.getElementById('processButton');
+            
+            if (postsChecked || highlightsChecked) {
+                processButton.disabled = false;
+            } else {
+                processButton.disabled = true;
+            }
+        }
+        
+        document.getElementById('processPosts').addEventListener('change', updateProcessButton);
+        document.getElementById('processHighlights').addEventListener('change', updateProcessButton);
+        
+        // Security: Clear any sensitive data on page unload
+        window.addEventListener('beforeunload', function() {
+            var input = document.getElementById('userInput');
+            if (input) input.value = '';
+            stopPolling();
+        });
             }, POLL_INTERVAL_MS);
         }
         
