@@ -190,316 +190,12 @@
                 loadingText.textContent = text;
             }
         }
+        
+        // Update processing loading text
         function updateProcessingLoadingText(text) {
             var loadingText = document.getElementById('processingLoadingText');
             if (loadingText) {
                 loadingText.textContent = text;
-            }
-        }
-        
-        // Start polling for processing results
-        function startProcessingPolling(requestId) {
-            processingPollAttempts = 0;
-            
-            if (processingPollInterval) {
-                clearInterval(processingPollInterval);
-            }
-            
-            processingPollInterval = setInterval(function() {
-                processingPollAttempts++;
-                
-                fetch('/poll-result/' + requestId, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'omit'
-                })
-                .then(function(response) {
-                    if (response.ok) {
-                        return response.json();
-                    } else if (response.status === 202) {
-                        updateProcessingLoadingText('Processing... (' + processingPollAttempts + '/' + MAX_POLL_ATTEMPTS + ')');
-                        return null;
-                    } else {
-                        throw new Error('Polling failed');
-                    }
-                })
-                .then(function(data) {
-                    if (data && data.success && data.data) {
-                        clearInterval(processingPollInterval);
-                        console.log('Processing result received:', data.data);
-                        showProcessingResult(data.data);
-                        showProcessingLoading(false);
-                    }
-                    
-                    if (processingPollAttempts >= MAX_POLL_ATTEMPTS) {
-                        clearInterval(processingPollInterval);
-                        showProcessingError('Processing timeout. Please try again.');
-                        showProcessingLoading(false);
-                    }
-                })
-                .catch(function(error) {
-                    console.error('Processing polling error:', error);
-                    processingPollAttempts++;
-                    
-                    if (processingPollAttempts >= MAX_POLL_ATTEMPTS) {
-                        clearInterval(processingPollInterval);
-                        showProcessingError('Failed to get processing result. Please try again.');
-                        showProcessingLoading(false);
-                    }
-                });
-            }, POLL_INTERVAL_MS);
-        }
-        
-        // Stop processing polling
-        function stopProcessingPolling() {
-            if (processingPollInterval) {
-                clearInterval(processingPollInterval);
-                processingPollInterval = null;
-            }
-        }
-        
-        // Show processing result
-        function showProcessingResult(data) {
-            var processingResult = document.getElementById('processingResult');
-            var processingResultContent = document.getElementById('processingResultContent');
-            
-            processingResultContent.innerHTML = '';
-            
-            var resultDiv = document.createElement('div');
-            resultDiv.className = 'space-y-4';
-            
-            // Check what type of data we received
-            var hasPostsData = data.posts || data.both;
-            var hasHighlightsData = data.highlights || data.both;
-            
-            // Handle Posts data
-            if (hasPostsData) {
-                var postsData = data.posts || data.both;
-                
-                var postsSection = document.createElement('div');
-                postsSection.className = 'border rounded-lg p-4 bg-blue-50';
-                
-                var postsTitle = document.createElement('h4');
-                postsTitle.className = 'font-semibold text-lg text-blue-800 mb-2';
-                postsTitle.textContent = data.both ? 'Posts & Highlights Data' : 'Posts Data';
-                postsSection.appendChild(postsTitle);
-                
-                // Status
-                if (postsData.status) {
-                    var statusDiv = document.createElement('div');
-                    statusDiv.className = 'mb-2';
-                    var statusLabel = document.createElement('span');
-                    statusLabel.className = 'font-medium text-gray-700';
-                    statusLabel.textContent = 'Status: ';
-                    var statusValue = document.createElement('span');
-                    statusValue.className = postsData.status === 'success' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
-                    statusValue.textContent = postsData.status;
-                    statusDiv.appendChild(statusLabel);
-                    statusDiv.appendChild(statusValue);
-                    postsSection.appendChild(statusDiv);
-                }
-                
-                // Result preview
-                if (postsData.result) {
-                    var resultPreview = document.createElement('div');
-                    resultPreview.className = 'mb-2';
-                    
-                    var resultLabel = document.createElement('div');
-                    resultLabel.className = 'font-medium text-gray-700 mb-1';
-                    resultLabel.textContent = 'Content Info:';
-                    
-                    var contentInfo = document.createElement('div');
-                    contentInfo.className = 'text-sm space-y-1';
-                    
-                    // Extract key info
-                    if (postsData.result.shortCode) {
-                        var shortCodeInfo = document.createElement('div');
-                        shortCodeInfo.innerHTML = '<strong>Post:</strong> ' + escapeHtml(postsData.result.shortCode);
-                        contentInfo.appendChild(shortCodeInfo);
-                    }
-                    
-                    if (postsData.result.type) {
-                        var typeInfo = document.createElement('div');
-                        typeInfo.innerHTML = '<strong>Type:</strong> ' + escapeHtml(postsData.result.type);
-                        contentInfo.appendChild(typeInfo);
-                    }
-                    
-                    if (postsData.result.likesCount !== undefined) {
-                        var likesInfo = document.createElement('div');
-                        likesInfo.innerHTML = '<strong>Likes:</strong> ' + postsData.result.likesCount.toLocaleString();
-                        contentInfo.appendChild(likesInfo);
-                    }
-                    
-                    if (postsData.result.commentsCount !== undefined) {
-                        var commentsInfo = document.createElement('div');
-                        commentsInfo.innerHTML = '<strong>Comments:</strong> ' + postsData.result.commentsCount.toLocaleString();
-                        contentInfo.appendChild(commentsInfo);
-                    }
-                    
-                    if (postsData.result.ownerUsername) {
-                        var ownerInfo = document.createElement('div');
-                        ownerInfo.innerHTML = '<strong>Owner:</strong> @' + escapeHtml(postsData.result.ownerUsername);
-                        contentInfo.appendChild(ownerInfo);
-                    }
-                    
-                    resultPreview.appendChild(resultLabel);
-                    resultPreview.appendChild(contentInfo);
-                    postsSection.appendChild(resultPreview);
-                }
-                
-                // Message for posts/both
-                if (postsData.message && postsData.message !== 'No message provided') {
-                    var messageDiv = document.createElement('div');
-                    messageDiv.className = 'mt-2 p-2 bg-blue-100 text-blue-700 rounded';
-                    var messageLabel = document.createElement('span');
-                    messageLabel.className = 'font-medium';
-                    messageLabel.textContent = 'Message: ';
-                    var messageValue = document.createElement('span');
-                    messageValue.textContent = postsData.message;
-                    messageDiv.appendChild(messageLabel);
-                    messageDiv.appendChild(messageValue);
-                    postsSection.appendChild(messageDiv);
-                }
-                var fullDataLabel = document.createElement('div');
-                fullDataLabel.className = 'font-medium text-gray-700 mb-1';
-                fullDataLabel.textContent = 'Full Data (click to expand):';
-                
-                var fullDataContent = document.createElement('details');
-                var summary = document.createElement('summary');
-                summary.className = 'cursor-pointer text-blue-600 hover:text-blue-800';
-                summary.textContent = 'Show/Hide Raw Data';
-                
-                var rawData = document.createElement('div');
-                rawData.className = 'bg-gray-50 p-3 rounded border mt-2 max-h-60 overflow-y-auto';
-                rawData.style.fontSize = '12px';
-                rawData.style.fontFamily = 'monospace';
-                rawData.textContent = JSON.stringify(postsData, null, 2);
-                
-                fullDataContent.appendChild(summary);
-                fullDataContent.appendChild(rawData);
-                
-                postsSection.appendChild(fullDataLabel);
-                postsSection.appendChild(fullDataContent);
-                
-                resultDiv.appendChild(postsSection);
-            }
-            
-            // Handle Highlights data (only if it's separate from posts)
-            if (hasHighlightsData && !data.both) {
-                var highlightsData = data.highlights;
-                
-                var highlightsSection = document.createElement('div');
-                highlightsSection.className = 'border rounded-lg p-4 bg-purple-50';
-                
-                var highlightsTitle = document.createElement('h4');
-                highlightsTitle.className = 'font-semibold text-lg text-purple-800 mb-2';
-                highlightsTitle.textContent = 'Highlights Data';
-                highlightsSection.appendChild(highlightsTitle);
-                
-                // Status
-                if (highlightsData.status) {
-                    var statusDiv = document.createElement('div');
-                    statusDiv.className = 'mb-2';
-                    var statusLabel = document.createElement('span');
-                    statusLabel.className = 'font-medium text-gray-700';
-                    statusLabel.textContent = 'Status: ';
-                    var statusValue = document.createElement('span');
-                    statusValue.className = highlightsData.status === 'success' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
-                    statusValue.textContent = highlightsData.status;
-                    statusDiv.appendChild(statusLabel);
-                    statusDiv.appendChild(statusValue);
-                    highlightsSection.appendChild(statusDiv);
-                }
-                
-                // Message for highlights
-                if (highlightsData.message && highlightsData.message !== 'No message provided') {
-                    var messageDiv = document.createElement('div');
-                    messageDiv.className = 'mt-2 p-2 bg-purple-100 text-purple-700 rounded';
-                    var messageLabel = document.createElement('span');
-                    messageLabel.className = 'font-medium';
-                    messageLabel.textContent = 'Message: ';
-                    var messageValue = document.createElement('span');
-                    messageValue.textContent = highlightsData.message;
-                    messageDiv.appendChild(messageLabel);
-                    messageDiv.appendChild(messageValue);
-                    highlightsSection.appendChild(messageDiv);
-                }
-                
-                // Full data (collapsible)
-                var fullDataLabel = document.createElement('div');
-                fullDataLabel.className = 'font-medium text-gray-700 mb-1';
-                fullDataLabel.textContent = 'Full Data (click to expand):';
-                
-                var fullDataContent = document.createElement('details');
-                var summary = document.createElement('summary');
-                summary.className = 'cursor-pointer text-purple-600 hover:text-purple-800';
-                summary.textContent = 'Show/Hide Raw Data';
-                
-                var rawData = document.createElement('div');
-                rawData.className = 'bg-gray-50 p-3 rounded border mt-2 max-h-60 overflow-y-auto';
-                rawData.style.fontSize = '12px';
-                rawData.style.fontFamily = 'monospace';
-                rawData.textContent = JSON.stringify(highlightsData, null, 2);
-                
-                fullDataContent.appendChild(summary);
-                fullDataContent.appendChild(rawData);
-                
-                highlightsSection.appendChild(fullDataLabel);
-                highlightsSection.appendChild(fullDataContent);
-                
-                resultDiv.appendChild(highlightsSection);
-            }
-            
-            // Remove the general message section since we now handle it per data type
-            
-            // Timestamp
-            if (data.timestamp) {
-                var timeDiv = document.createElement('div');
-                timeDiv.className = 'text-sm text-gray-500';
-                timeDiv.textContent = 'Completed at: ' + new Date(data.timestamp).toLocaleString();
-                resultDiv.appendChild(timeDiv);
-            }
-            
-            processingResultContent.appendChild(resultDiv);
-            processingResult.classList.remove('hidden');
-            processingResult.scrollIntoView({ behavior: 'smooth' });
-        }
-        
-        // Show processing error
-        function showProcessingError(message) {
-            var processingResult = document.getElementById('processingResult');
-            var processingResultContent = document.getElementById('processingResultContent');
-            
-            processingResultContent.innerHTML = '';
-            
-            var errorDiv = document.createElement('div');
-            errorDiv.className = 'p-3 bg-red-100 text-red-700 rounded border';
-            errorDiv.textContent = message;
-            
-            processingResultContent.appendChild(errorDiv);
-            processingResult.classList.remove('hidden');
-            processingResult.scrollIntoView({ behavior: 'smooth' });
-        }
-        
-        // Show/hide processing loading
-        function showProcessingLoading(show) {
-            var loading = document.getElementById('processingLoading');
-            var processButton = document.getElementById('processButton');
-            
-            if (show) {
-                loading.classList.remove('hidden');
-                processButton.disabled = true;
-                processButton.textContent = 'Processing...';
-                processButton.className = processButton.className.replace('bg-purple-600 hover:bg-purple-700', 'bg-gray-400 cursor-not-allowed');
-                updateProcessingLoadingText('Processing...');
-            } else {
-                loading.classList.add('hidden');
-                processButton.disabled = false;
-                processButton.textContent = 'Process';
-                processButton.className = processButton.className.replace('bg-gray-400 cursor-not-allowed', 'bg-purple-600 hover:bg-purple-700');
-                updateProcessButton(); // Re-check if button should be enabled
             }
         }
         
@@ -557,11 +253,74 @@
             }, POLL_INTERVAL_MS);
         }
         
+        // Start polling for processing results
+        function startProcessingPolling(requestId) {
+            processingPollAttempts = 0;
+            
+            if (processingPollInterval) {
+                clearInterval(processingPollInterval);
+            }
+            
+            processingPollInterval = setInterval(function() {
+                processingPollAttempts++;
+                
+                fetch('/poll-result/' + requestId, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'omit'
+                })
+                .then(function(response) {
+                    if (response.ok) {
+                        return response.json();
+                    } else if (response.status === 202) {
+                        updateProcessingLoadingText('Processing... (' + processingPollAttempts + '/' + MAX_POLL_ATTEMPTS + ')');
+                        return null;
+                    } else {
+                        throw new Error('Polling failed');
+                    }
+                })
+                .then(function(data) {
+                    if (data && data.success && data.data) {
+                        clearInterval(processingPollInterval);
+                        console.log('Processing result received:', data.data);
+                        showProcessingResult(data.data);
+                        showProcessingLoading(false);
+                    }
+                    
+                    if (processingPollAttempts >= MAX_POLL_ATTEMPTS) {
+                        clearInterval(processingPollInterval);
+                        showProcessingError('Processing timeout. Please try again.');
+                        showProcessingLoading(false);
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Processing polling error:', error);
+                    processingPollAttempts++;
+                    
+                    if (processingPollAttempts >= MAX_POLL_ATTEMPTS) {
+                        clearInterval(processingPollInterval);
+                        showProcessingError('Failed to get processing result. Please try again.');
+                        showProcessingLoading(false);
+                    }
+                });
+            }, POLL_INTERVAL_MS);
+        }
+        
         // Stop polling
         function stopPolling() {
             if (pollInterval) {
                 clearInterval(pollInterval);
                 pollInterval = null;
+            }
+        }
+        
+        // Stop processing polling
+        function stopProcessingPolling() {
+            if (processingPollInterval) {
+                clearInterval(processingPollInterval);
+                processingPollInterval = null;
             }
         }
         
@@ -639,6 +398,108 @@
             }
             
             n8nResult.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Show processing result (simple format like the first page)
+        function showProcessingResult(data) {
+            var processingResult = document.getElementById('processingResult');
+            var processingResultContent = document.getElementById('processingResultContent');
+            
+            processingResultContent.innerHTML = '';
+            
+            var resultDiv = document.createElement('div');
+            resultDiv.className = 'space-y-2';
+            
+            // Status
+            if (data.status) {
+                var statusDiv = document.createElement('div');
+                var statusLabel = document.createElement('span');
+                statusLabel.className = 'font-medium text-gray-700';
+                statusLabel.textContent = 'Status: ';
+                var statusValue = document.createElement('span');
+                statusValue.className = data.status === 'success' ? 'text-green-600' : 'text-red-600';
+                statusValue.textContent = data.status;
+                statusDiv.appendChild(statusLabel);
+                statusDiv.appendChild(statusValue);
+                resultDiv.appendChild(statusDiv);
+            }
+            
+            // Result
+            if (data.result) {
+                var resultTextDiv = document.createElement('div');
+                var resultLabel = document.createElement('div');
+                resultLabel.className = 'font-medium text-gray-700';
+                resultLabel.textContent = 'Processing Result:';
+                var resultContent = document.createElement('div');
+                resultContent.className = 'bg-gray-50 p-3 rounded border mt-1 max-h-60 overflow-y-auto';
+                resultContent.style.fontSize = '12px';
+                resultContent.style.fontFamily = 'monospace';
+                resultContent.textContent = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2);
+                resultTextDiv.appendChild(resultLabel);
+                resultTextDiv.appendChild(resultContent);
+                resultDiv.appendChild(resultTextDiv);
+            }
+            
+            // Message
+            if (data.message && data.message !== 'No message provided') {
+                var messageDiv = document.createElement('div');
+                var messageLabel = document.createElement('span');
+                messageLabel.className = 'font-medium text-gray-700';
+                messageLabel.textContent = 'Message: ';
+                var messageValue = document.createElement('span');
+                messageValue.textContent = data.message;
+                messageDiv.appendChild(messageLabel);
+                messageDiv.appendChild(messageValue);
+                resultDiv.appendChild(messageDiv);
+            }
+            
+            // Timestamp
+            if (data.timestamp) {
+                var timeDiv = document.createElement('div');
+                timeDiv.className = 'text-sm text-gray-500';
+                timeDiv.textContent = 'Completed at: ' + new Date(data.timestamp).toLocaleString();
+                resultDiv.appendChild(timeDiv);
+            }
+            
+            processingResultContent.appendChild(resultDiv);
+            processingResult.classList.remove('hidden');
+            processingResult.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Show processing error
+        function showProcessingError(message) {
+            var processingResult = document.getElementById('processingResult');
+            var processingResultContent = document.getElementById('processingResultContent');
+            
+            processingResultContent.innerHTML = '';
+            
+            var errorDiv = document.createElement('div');
+            errorDiv.className = 'p-3 bg-red-100 text-red-700 rounded border';
+            errorDiv.textContent = message;
+            
+            processingResultContent.appendChild(errorDiv);
+            processingResult.classList.remove('hidden');
+            processingResult.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Show/hide processing loading
+        function showProcessingLoading(show) {
+            var loading = document.getElementById('processingLoading');
+            var processButton = document.getElementById('processButton');
+            
+            if (show) {
+                loading.classList.remove('hidden');
+                processButton.disabled = true;
+                processButton.textContent = 'Processing...';
+                processButton.className = processButton.className.replace('bg-purple-600 hover:bg-purple-700', 'bg-gray-400 cursor-not-allowed');
+                updateProcessingLoadingText('Processing...');
+            } else {
+                loading.classList.add('hidden');
+                processButton.disabled = false;
+                processButton.textContent = 'Process';
+                processButton.className = processButton.className.replace('bg-gray-400 cursor-not-allowed', 'bg-purple-600 hover:bg-purple-700');
+                updateProcessButton(); // Re-check if button should be enabled
+            }
         }
         
         // Show result message
