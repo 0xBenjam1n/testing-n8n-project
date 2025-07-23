@@ -455,10 +455,10 @@
             // Remove the general message section since we now handle it per data type
             
             // Timestamp
-            if (anyData && anyData.timestamp) {
+            if (data.timestamp) {
                 var timeDiv = document.createElement('div');
-                timeDiv.className = 'text-sm text-gray-500 text-center pt-2 border-t';
-                timeDiv.textContent = 'Completed at: ' + new Date(anyData.timestamp).toLocaleString();
+                timeDiv.className = 'text-sm text-gray-500';
+                timeDiv.textContent = 'Completed at: ' + new Date(data.timestamp).toLocaleString();
                 resultDiv.appendChild(timeDiv);
             }
             
