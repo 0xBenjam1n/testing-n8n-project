@@ -239,11 +239,23 @@
             }
         }
         
+        // Global variables to store Instagram data and original username
+        var currentInstagramData = null;
+        var originalUsername = '';
+        var currentRequestId = '';
+        
         // Show n8n result (simple format)
         function showN8nResult(data) {
             var n8nResult = document.getElementById('n8nResult');
             var n8nResultContent = document.getElementById('n8nResultContent');
             var confirmationSection = document.getElementById('confirmationSection');
+            
+            // Store the Instagram data globally for later use
+            try {
+                currentInstagramData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+            } catch (e) {
+                currentInstagramData = data.result;
+            }
             
             n8nResultContent.innerHTML = '';
             
@@ -356,22 +368,91 @@
             var postsChecked = document.getElementById('processPosts').checked;
             var highlightsChecked = document.getElementById('processHighlights').checked;
             
-            var selectedOptions = [];
-            if (postsChecked) selectedOptions.push('posts');
-            if (highlightsChecked) selectedOptions.push('highlights');
+            // Calculate bothSelected
+            var bothSelected = postsChecked && highlightsChecked;
             
-            console.log('Processing selected options:', selectedOptions);
+            // Extract counts from Instagram data
+            var postsCount = 0;
+            var highlightsCount = 0;
             
-            // You can add the processing logic here
-            alert('Processing: ' + selectedOptions.join(', '));
+            if (currentInstagramData) {
+                postsCount = currentInstagramData.postsCount || 0;
+                highlightsCount = currentInstagramData.highlightReelCount || 0;
+            }
             
-            // Reset for next use
-            document.getElementById('processPosts').checked = false;
-            document.getElementById('processHighlights').checked = false;
-            document.getElementById('confirmOwnership').checked = false;
-            document.getElementById('confirmButton').disabled = true;
-            document.getElementById('processButton').disabled = true;
-            document.getElementById('processingPage').classList.add('hidden');
+            console.log('Processing with Instagram data:', {
+                username: originalUsername,
+                bothSelected: bothSelected,
+                posts: postsChecked,
+                highlights: highlightsChecked,
+                postsCount: postsCount,
+                highlightsCount: highlightsCount
+            });
+            
+            // Disable the button and show loading state
+            var processButton = document.getElementById('processButton');
+            var originalText = processButton.textContent;
+            processButton.disabled = true;
+            processButton.textContent = 'Sending...';
+            processButton.className = processButton.className.replace('bg-purple-600 hover:bg-purple-700', 'bg-gray-400 cursor-not-allowed');
+            
+            // Send request to n8n webhook
+            var webhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/c3acf6be-e6bd-465d-b415-efabe6e02f86';
+            
+            var payload = {
+                username: originalUsername,
+                bothSelected: bothSelected,
+                posts: postsChecked,
+                highlights: highlightsChecked,
+                timestamp: new Date().toISOString(),
+                requestId: currentRequestId,
+                resultLimit: postsCount,
+                highlightsCount: highlightsCount
+            };
+            
+            fetch(webhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Client-Type': 'processing-request'
+                },
+                body: JSON.stringify(payload),
+                credentials: 'omit'
+            })
+            .then(function(response) {
+                if (response.ok) {
+                    console.log('Processing request sent successfully');
+                    var selectedOptions = [];
+                    if (postsChecked) selectedOptions.push('posts');
+                    if (highlightsChecked) selectedOptions.push('highlights');
+                    alert('Processing request sent successfully!\nUsername: ' + originalUsername + '\nSelected options: ' + selectedOptions.join(', ') + '\nPosts available: ' + postsCount + '\nHighlights available: ' + highlightsCount);
+                } else {
+                    throw new Error('Server responded with status: ' + response.status);
+                }
+            })
+            .catch(function(error) {
+                console.error('Error sending processing request:', error);
+                alert('Failed to send processing request. Please try again.');
+            })
+            .finally(function() {
+                // Reset the button and form
+                processButton.disabled = false;
+                processButton.textContent = originalText;
+                processButton.className = processButton.className.replace('bg-gray-400 cursor-not-allowed', 'bg-purple-600 hover:bg-purple-700');
+                
+                // Reset checkboxes and forms for next use
+                document.getElementById('processPosts').checked = false;
+                document.getElementById('processHighlights').checked = false;
+                document.getElementById('confirmOwnership').checked = false;
+                document.getElementById('confirmButton').disabled = true;
+                document.getElementById('processButton').disabled = true;
+                document.getElementById('processingPage').classList.add('hidden');
+                
+                // Clear stored data for next use
+                currentInstagramData = null;
+                originalUsername = '';
+                currentRequestId = '';
+            });
         });
         
         // Show result message
