@@ -88,6 +88,17 @@
             </button>
         </div>
         
+        <!-- Processing result display -->
+        <div id="processingResult" class="mt-6 p-4 rounded-md hidden">
+            <h3 class="font-semibold mb-2">Processing Complete:</h3>
+            <div id="processingResultContent"></div>
+        </div>
+        
+        <div id="processingLoading" class="mt-6 text-center hidden">
+            <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+            <p class="text-gray-600 mt-2" id="processingLoadingText">Processing...</p>
+        </div>
+        
         <div id="loading" class="mt-6 text-center hidden">
             <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             <p class="text-gray-600 mt-2" id="loadingText">Sending...</p>
@@ -102,6 +113,8 @@
         var pollAttempts = 0;
         var lastRequestTime = 0;
         var storedInstagramData = null;
+        var processingPollInterval = null;
+        var processingPollAttempts = 0;
         
         // Constants
         var MAX_POLL_ATTEMPTS = 60;
@@ -170,11 +183,175 @@
             return { allowed: true };
         }
         
-        // Update loading text
-        function updateLoadingText(text) {
-            var loadingText = document.getElementById('loadingText');
+        // Update processing loading text
+        function updateProcessingLoadingText(text) {
+            var loadingText = document.getElementById('processingLoadingText');
             if (loadingText) {
                 loadingText.textContent = text;
+            }
+        }
+        
+        // Start polling for processing results
+        function startProcessingPolling(requestId) {
+            processingPollAttempts = 0;
+            
+            if (processingPollInterval) {
+                clearInterval(processingPollInterval);
+            }
+            
+            processingPollInterval = setInterval(function() {
+                processingPollAttempts++;
+                
+                fetch('/poll-result/' + requestId, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'omit'
+                })
+                .then(function(response) {
+                    if (response.ok) {
+                        return response.json();
+                    } else if (response.status === 202) {
+                        updateProcessingLoadingText('Processing... (' + processingPollAttempts + '/' + MAX_POLL_ATTEMPTS + ')');
+                        return null;
+                    } else {
+                        throw new Error('Polling failed');
+                    }
+                })
+                .then(function(data) {
+                    if (data && data.success && data.data) {
+                        clearInterval(processingPollInterval);
+                        showProcessingResult(data.data);
+                        showProcessingLoading(false);
+                    }
+                    
+                    if (processingPollAttempts >= MAX_POLL_ATTEMPTS) {
+                        clearInterval(processingPollInterval);
+                        showProcessingError('Processing timeout. Please try again.');
+                        showProcessingLoading(false);
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Processing polling error:', error);
+                    processingPollAttempts++;
+                    
+                    if (processingPollAttempts >= MAX_POLL_ATTEMPTS) {
+                        clearInterval(processingPollInterval);
+                        showProcessingError('Failed to get processing result. Please try again.');
+                        showProcessingLoading(false);
+                    }
+                });
+            }, POLL_INTERVAL_MS);
+        }
+        
+        // Stop processing polling
+        function stopProcessingPolling() {
+            if (processingPollInterval) {
+                clearInterval(processingPollInterval);
+                processingPollInterval = null;
+            }
+        }
+        
+        // Show processing result
+        function showProcessingResult(data) {
+            var processingResult = document.getElementById('processingResult');
+            var processingResultContent = document.getElementById('processingResultContent');
+            
+            processingResultContent.innerHTML = '';
+            
+            var resultDiv = document.createElement('div');
+            resultDiv.className = 'space-y-2';
+            
+            // Status
+            if (data.status) {
+                var statusDiv = document.createElement('div');
+                var statusLabel = document.createElement('span');
+                statusLabel.className = 'font-medium text-gray-700';
+                statusLabel.textContent = 'Status: ';
+                var statusValue = document.createElement('span');
+                statusValue.className = data.status === 'success' ? 'text-green-600' : 'text-red-600';
+                statusValue.textContent = data.status;
+                statusDiv.appendChild(statusLabel);
+                statusDiv.appendChild(statusValue);
+                resultDiv.appendChild(statusDiv);
+            }
+            
+            // Result
+            if (data.result) {
+                var resultTextDiv = document.createElement('div');
+                var resultLabel = document.createElement('div');
+                resultLabel.className = 'font-medium text-gray-700';
+                resultLabel.textContent = 'Processing Result:';
+                var resultContent = document.createElement('div');
+                resultContent.className = 'bg-gray-50 p-3 rounded border mt-1 max-h-60 overflow-y-auto';
+                resultContent.style.fontSize = '12px';
+                resultContent.style.fontFamily = 'monospace';
+                resultContent.textContent = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2);
+                resultTextDiv.appendChild(resultLabel);
+                resultTextDiv.appendChild(resultContent);
+                resultDiv.appendChild(resultTextDiv);
+            }
+            
+            // Message
+            if (data.message && data.message !== 'No message provided') {
+                var messageDiv = document.createElement('div');
+                var messageLabel = document.createElement('span');
+                messageLabel.className = 'font-medium text-gray-700';
+                messageLabel.textContent = 'Message: ';
+                var messageValue = document.createElement('span');
+                messageValue.textContent = data.message;
+                messageDiv.appendChild(messageLabel);
+                messageDiv.appendChild(messageValue);
+                resultDiv.appendChild(messageDiv);
+            }
+            
+            // Timestamp
+            if (data.timestamp) {
+                var timeDiv = document.createElement('div');
+                timeDiv.className = 'text-sm text-gray-500';
+                timeDiv.textContent = 'Completed at: ' + new Date(data.timestamp).toLocaleString();
+                resultDiv.appendChild(timeDiv);
+            }
+            
+            processingResultContent.appendChild(resultDiv);
+            processingResult.classList.remove('hidden');
+            processingResult.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Show processing error
+        function showProcessingError(message) {
+            var processingResult = document.getElementById('processingResult');
+            var processingResultContent = document.getElementById('processingResultContent');
+            
+            processingResultContent.innerHTML = '';
+            
+            var errorDiv = document.createElement('div');
+            errorDiv.className = 'p-3 bg-red-100 text-red-700 rounded border';
+            errorDiv.textContent = message;
+            
+            processingResultContent.appendChild(errorDiv);
+            processingResult.classList.remove('hidden');
+            processingResult.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Show/hide processing loading
+        function showProcessingLoading(show) {
+            var loading = document.getElementById('processingLoading');
+            var processButton = document.getElementById('processButton');
+            
+            if (show) {
+                loading.classList.remove('hidden');
+                processButton.disabled = true;
+                processButton.textContent = 'Processing...';
+                processButton.className = processButton.className.replace('bg-purple-600 hover:bg-purple-700', 'bg-gray-400 cursor-not-allowed');
+                updateProcessingLoadingText('Processing...');
+            } else {
+                loading.classList.add('hidden');
+                processButton.disabled = false;
+                processButton.textContent = 'Process';
+                processButton.className = processButton.className.replace('bg-gray-400 cursor-not-allowed', 'bg-purple-600 hover:bg-purple-700');
+                updateProcessButton(); // Re-check if button should be enabled
             }
         }
         
@@ -468,6 +645,12 @@
             var postsChecked = document.getElementById('processPosts').checked;
             var highlightsChecked = document.getElementById('processHighlights').checked;
             
+            // Hide previous processing results
+            document.getElementById('processingResult').classList.add('hidden');
+            
+            // Stop any ongoing processing polling
+            stopProcessingPolling();
+            
             // Get data from stored Instagram response
             var username = '';
             var postsCount = 0;
@@ -484,7 +667,7 @@
                 }
             }
             
-            // Generate new request ID
+            // Generate new request ID for processing
             var newRequestId = generateRequestId();
             
             var payload = {
@@ -498,12 +681,10 @@
                 highlightsCount: highlightsCount
             };
             
-            console.log('Sending payload:', payload);
+            console.log('Sending processing payload:', payload);
             
-            // Disable button
-            var processButton = document.getElementById('processButton');
-            processButton.disabled = true;
-            processButton.textContent = 'Sending...';
+            // Show processing loading
+            showProcessingLoading(true);
             
             // Send to webhook
             fetch('https://oxbenjam1n.app.n8n.cloud/webhook-test/c3acf6be-e6bd-465d-b415-efabe6e02f86', {
@@ -513,24 +694,31 @@
             })
             .then(function(response) {
                 if (response.ok) {
-                    alert('Request sent successfully!');
+                    console.log('Processing request sent successfully');
+                    // Start polling for processing result
+                    updateProcessingLoadingText('Waiting for processing result...');
+                    startProcessingPolling(newRequestId);
+                } else if (response.status === 429) {
+                    showProcessingError('Too many requests. Please try again later.');
+                    showProcessingLoading(false);
+                } else if (response.status >= 400 && response.status < 500) {
+                    showProcessingError('Request rejected. Please check your input.');
+                    showProcessingLoading(false);
                 } else {
-                    throw new Error('Request failed');
+                    showProcessingError('Server temporarily unavailable. Please try again later.');
+                    showProcessingLoading(false);
                 }
             })
             .catch(function(error) {
-                alert('Error: ' + error.message);
-            })
-            .finally(function() {
-                // Reset everything
-                processButton.disabled = false;
-                processButton.textContent = 'Process';
-                document.getElementById('processPosts').checked = false;
-                document.getElementById('processHighlights').checked = false;
-                document.getElementById('confirmOwnership').checked = false;
-                document.getElementById('confirmButton').disabled = true;
-                document.getElementById('processButton').disabled = true;
-                document.getElementById('processingPage').classList.add('hidden');
+                console.error('Processing request error:', error);
+                
+                if (error.name === 'AbortError') {
+                    showProcessingError('Request timed out. Please try again.');
+                } else {
+                    showProcessingError('Network error. Please check your connection.');
+                }
+                
+                showProcessingLoading(false);
             });
         });
         
@@ -539,6 +727,7 @@
             var input = document.getElementById('userInput');
             if (input) input.value = '';
             stopPolling();
+            stopProcessingPolling();
         });
     </script>
 </body>
