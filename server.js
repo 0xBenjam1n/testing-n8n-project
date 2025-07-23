@@ -1,23 +1,56 @@
 // Security: Validate and sanitize incoming data
 function validateAndSanitizeResponse(data) {
     console.log('📥 Raw received data:', JSON.stringify(data, null, 2));
+    console.log('📋 Data type:', typeof data);
+    console.log('📋 Data keys:', Object.keys(data || {}));
     
     if (!data || typeof data !== 'object') {
         return { valid: false, message: 'Invalid data format' };
     }
     
-    // Check if data is wrapped in a "check" field
+    // Check for various possible wrapper patterns
     let actualData = data;
+    let wrapperFound = false;
+    
+    // Check for "check" wrapper
     if (data.check && typeof data.check === 'object') {
         console.log('🔍 Found data wrapped in "check" field');
         actualData = data.check;
+        wrapperFound = true;
     }
+    // Check for other possible field names
+    else if (data.body && typeof data.body === 'object') {
+        console.log('🔍 Found data wrapped in "body" field');
+        actualData = data.body;
+        wrapperFound = true;
+    }
+    // Check if the entire payload is the actual data
+    else if (data.requestId) {
+        console.log('🔍 Data appears to be at root level');
+        actualData = data;
+    }
+    // Debug: show all top-level fields
+    else {
+        console.log('🔍 No recognized wrapper found. Available fields:');
+        Object.keys(data).forEach(key => {
+            console.log(`  - ${key}:`, typeof data[key], data[key] && typeof data[key] === 'object' ? Object.keys(data[key]) : data[key]);
+        });
+        // Try the first object field we find
+        const firstObjectKey = Object.keys(data).find(key => typeof data[key] === 'object' && data[key] !== null);
+        if (firstObjectKey) {
+            console.log(`🔄 Trying to use field "${firstObjectKey}" as data`);
+            actualData = data[firstObjectKey];
+            wrapperFound = true;
+        }
+    }
+    
+    console.log('📦 Final data to process:', JSON.stringify(actualData, null, 2));
     
     const { requestId, result, status, message } = actualData;
     
     console.log('📋 Extracted fields:');
     console.log('  - requestId:', requestId, typeof requestId);
-    console.log('  - result:', result ? 'EXISTS' : 'MISSING', typeof result);
+    console.log('  - result exists:', !!result, typeof result);
     console.log('  - status:', status, typeof status);
     console.log('  - message:', message, typeof message);
     
@@ -37,16 +70,6 @@ function validateAndSanitizeResponse(data) {
     if (stringRequestId.length === 0) {
         return { valid: false, message: 'Empty requestId' };
     }
-    
-    // Show what we actually received for each field
-    console.log('🔍 Field analysis:');
-    if (result === undefined) console.log('  ⚠️ result is undefined');
-    if (result === null) console.log('  ⚠️ result is null');
-    if (result === '') console.log('  ⚠️ result is empty string');
-    if (status === undefined) console.log('  ⚠️ status is undefined');
-    if (status === null) console.log('  ⚠️ status is null');
-    if (message === undefined) console.log('  ⚠️ message is undefined');
-    if (message === null) console.log('  ⚠️ message is null');
     
     // Sanitize data with better handling
     const sanitizedData = {
