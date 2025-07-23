@@ -183,7 +183,13 @@
             return { allowed: true };
         }
         
-        // Update processing loading text
+        // Update loading text
+        function updateLoadingText(text) {
+            var loadingText = document.getElementById('loadingText');
+            if (loadingText) {
+                loadingText.textContent = text;
+            }
+        }
         function updateProcessingLoadingText(text) {
             var loadingText = document.getElementById('processingLoadingText');
             if (loadingText) {
