@@ -37,48 +37,63 @@
             <p id="resultMessage"></p>
         </div>
         
+        <div id="n8nResult" class="mt-6 p-4 rounded-md hidden">
+            <h3 class="font-semibold mb-2">Processing Result:</h3>
+            <div id="n8nResultContent"></div>
+        </div>
+        
         <div id="loading" class="mt-6 text-center hidden">
             <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <p class="text-gray-600 mt-2">Sending...</p>
+            <p class="text-gray-600 mt-2" id="loadingText">Sending...</p>
         </div>
     </div>
 
     <script>
-        // Security: Generate unique request ID to prevent race conditions
+        'use strict';
+        
+        // Global variables
+        var pollInterval = null;
+        var pollAttempts = 0;
+        var lastRequestTime = 0;
+        
+        // Constants
+        var MAX_POLL_ATTEMPTS = 60;
+        var POLL_INTERVAL_MS = 5000;
+        var RATE_LIMIT_MS = 2000;
+        
+        // Security: Generate unique request ID
         function generateRequestId() {
             return Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         }
         
-        // Security: Enhanced HTML escaping to prevent XSS
+        // Security: Enhanced HTML escaping
         function escapeHtml(text) {
-            const div = document.createElement('div');
+            var div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
         
-        // Security: Comprehensive input sanitization
+        // Security: Input sanitization
         function sanitizeInput(input) {
-            // Remove potentially dangerous characters and patterns
             return input
                 .trim()
-                .replace(/[<>]/g, '') // Remove HTML tags
-                .replace(/javascript:/gi, '') // Remove javascript: protocol
-                .replace(/data:/gi, '') // Remove data: protocol
-                .replace(/vbscript:/gi, '') // Remove vbscript: protocol
-                .replace(/on\w+\s*=/gi, ''); // Remove event handlers
+                .replace(/[<>]/g, '')
+                .replace(/javascript:/gi, '')
+                .replace(/data:/gi, '')
+                .replace(/vbscript:/gi, '')
+                .replace(/on\w+\s*=/gi, '');
         }
         
-        // Security: Enhanced input validation
+        // Security: Input validation
         function validateInput(input) {
             if (!input || input.length === 0) {
                 return { valid: false, message: 'Input cannot be empty' };
             }
-            if (input.length > 500) { // Reduced from 1000 for better security
+            if (input.length > 500) {
                 return { valid: false, message: 'Input too long (max 500 characters)' };
             }
             
-            // Enhanced security patterns check
-            const suspiciousPatterns = [
+            var suspiciousPatterns = [
                 /<script[^>]*>.*?<\/script>/gi,
                 /javascript:/gi,
                 /data:/gi,
@@ -90,20 +105,17 @@
                 /\/\*.*?\*\//g
             ];
             
-            for (const pattern of suspiciousPatterns) {
-                if (pattern.test(input)) {
+            for (var i = 0; i < suspiciousPatterns.length; i++) {
+                if (suspiciousPatterns[i].test(input)) {
                     return { valid: false, message: 'Invalid content detected' };
                 }
             }
             return { valid: true };
         }
         
-        // Rate limiting: Simple client-side rate limiting
-        let lastRequestTime = 0;
-        const RATE_LIMIT_MS = 2000; // 2 seconds between requests
-        
+        // Rate limiting
         function checkRateLimit() {
-            const now = Date.now();
+            var now = Date.now();
             if (now - lastRequestTime < RATE_LIMIT_MS) {
                 return { allowed: false, message: 'Please wait before sending another message' };
             }
@@ -111,15 +123,148 @@
             return { allowed: true };
         }
         
-        // Security: Safe DOM manipulation (prevents XSS)
-        function showResult(message, isSuccess = true) {
-            const result = document.getElementById('result');
-            const resultMessage = document.getElementById('resultMessage');
+        // Update loading text
+        function updateLoadingText(text) {
+            var loadingText = document.getElementById('loadingText');
+            if (loadingText) {
+                loadingText.textContent = text;
+            }
+        }
+        
+        // Start polling for results
+        function startPolling(requestId) {
+            pollAttempts = 0;
             
-            result.className = `mt-6 p-4 rounded-md ${isSuccess ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
             
-            // Use textContent instead of innerHTML to prevent XSS
-            const strongElement = document.createElement('strong');
+            pollInterval = setInterval(function() {
+                pollAttempts++;
+                
+                fetch('/poll-result/' + requestId, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'omit'
+                })
+                .then(function(response) {
+                    if (response.ok) {
+                        return response.json();
+                    } else if (response.status === 202) {
+                        updateLoadingText('Waiting for processing... (' + pollAttempts + '/' + MAX_POLL_ATTEMPTS + ')');
+                        return null;
+                    } else {
+                        throw new Error('Polling failed');
+                    }
+                })
+                .then(function(data) {
+                    if (data && data.success && data.data) {
+                        clearInterval(pollInterval);
+                        showN8nResult(data.data);
+                        showLoading(false);
+                    }
+                    
+                    if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+                        clearInterval(pollInterval);
+                        showResult('Processing timeout. The result may still arrive later.', false);
+                        showLoading(false);
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Polling error:', error);
+                    pollAttempts++;
+                    
+                    if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+                        clearInterval(pollInterval);
+                        showResult('Failed to get processing result. Please try again.', false);
+                        showLoading(false);
+                    }
+                });
+            }, POLL_INTERVAL_MS);
+        }
+        
+        // Stop polling
+        function stopPolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+        }
+        
+        // Show n8n result
+        function showN8nResult(data) {
+            var n8nResult = document.getElementById('n8nResult');
+            var n8nResultContent = document.getElementById('n8nResultContent');
+            
+            n8nResultContent.innerHTML = '';
+            
+            var resultDiv = document.createElement('div');
+            resultDiv.className = 'space-y-2';
+            
+            // Status
+            if (data.status) {
+                var statusDiv = document.createElement('div');
+                var statusLabel = document.createElement('span');
+                statusLabel.className = 'font-medium text-gray-700';
+                statusLabel.textContent = 'Status: ';
+                var statusValue = document.createElement('span');
+                statusValue.className = data.status === 'success' ? 'text-green-600' : 'text-red-600';
+                statusValue.textContent = escapeHtml(data.status);
+                statusDiv.appendChild(statusLabel);
+                statusDiv.appendChild(statusValue);
+                resultDiv.appendChild(statusDiv);
+            }
+            
+            // Result
+            if (data.result) {
+                var resultTextDiv = document.createElement('div');
+                var resultLabel = document.createElement('div');
+                resultLabel.className = 'font-medium text-gray-700';
+                resultLabel.textContent = 'Result:';
+                var resultContent = document.createElement('div');
+                resultContent.className = 'bg-gray-50 p-3 rounded border mt-1';
+                resultContent.textContent = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2);
+                resultTextDiv.appendChild(resultLabel);
+                resultTextDiv.appendChild(resultContent);
+                resultDiv.appendChild(resultTextDiv);
+            }
+            
+            // Message
+            if (data.message) {
+                var messageDiv = document.createElement('div');
+                var messageLabel = document.createElement('span');
+                messageLabel.className = 'font-medium text-gray-700';
+                messageLabel.textContent = 'Message: ';
+                var messageValue = document.createElement('span');
+                messageValue.textContent = escapeHtml(data.message);
+                messageDiv.appendChild(messageLabel);
+                messageDiv.appendChild(messageValue);
+                resultDiv.appendChild(messageDiv);
+            }
+            
+            // Timestamp
+            if (data.timestamp) {
+                var timeDiv = document.createElement('div');
+                timeDiv.className = 'text-sm text-gray-500';
+                timeDiv.textContent = 'Processed at: ' + new Date(data.timestamp).toLocaleString();
+                resultDiv.appendChild(timeDiv);
+            }
+            
+            n8nResultContent.appendChild(resultDiv);
+            n8nResult.classList.remove('hidden');
+            n8nResult.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Show result message
+        function showResult(message, isSuccess) {
+            var result = document.getElementById('result');
+            var resultMessage = document.getElementById('resultMessage');
+            
+            result.className = 'mt-6 p-4 rounded-md ' + (isSuccess ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+            
+            var strongElement = document.createElement('strong');
             strongElement.textContent = isSuccess ? 'Success: ' : 'Error: ';
             
             resultMessage.innerHTML = '';
@@ -129,15 +274,17 @@
             result.classList.remove('hidden');
         }
         
+        // Show/hide loading
         function showLoading(show) {
-            const loading = document.getElementById('loading');
-            const submitBtn = document.querySelector('button[type="submit"]');
+            var loading = document.getElementById('loading');
+            var submitBtn = document.querySelector('button[type="submit"]');
             
             if (show) {
                 loading.classList.remove('hidden');
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Sending...';
                 submitBtn.className = submitBtn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-gray-400 cursor-not-allowed');
+                updateLoadingText('Sending...');
             } else {
                 loading.classList.add('hidden');
                 submitBtn.disabled = false;
@@ -146,81 +293,71 @@
             }
         }
         
-        document.getElementById('simpleForm').addEventListener('submit', async function(e) {
+        // Form submission
+        document.getElementById('simpleForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const input = document.getElementById('userInput');
-            const rawValue = input.value;
+            var input = document.getElementById('userInput');
+            var rawValue = input.value;
             
             // Hide previous results
             document.getElementById('result').classList.add('hidden');
+            document.getElementById('n8nResult').classList.add('hidden');
             
-            // Security: Check rate limiting
-            const rateLimitCheck = checkRateLimit();
+            // Stop any ongoing polling
+            stopPolling();
+            
+            // Check rate limiting
+            var rateLimitCheck = checkRateLimit();
             if (!rateLimitCheck.allowed) {
                 showResult(rateLimitCheck.message, false);
                 return;
             }
             
             // Validate input
-            const validation = validateInput(rawValue);
+            var validation = validateInput(rawValue);
             if (!validation.valid) {
                 showResult(validation.message, false);
                 return;
             }
             
             // Sanitize input
-            const sanitizedValue = sanitizeInput(rawValue);
+            var sanitizedValue = sanitizeInput(rawValue);
+            var requestId = generateRequestId();
             
-            // Generate unique request ID
-            const requestId = generateRequestId();
-            
-            // Show loading state
+            // Show loading
             showLoading(true);
             
-            try {
-                // Security: Validate webhook URL format
-                const webhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/ee95c5d8-139e-4d35-8eab-b431b741f563';
-                
-                // Security: Validate URL is HTTPS and from expected domain
-                const url = new URL(webhookUrl);
-                if (url.protocol !== 'https:' || !url.hostname.includes('n8n.cloud')) {
-                    throw new Error('Invalid webhook URL');
+            var webhookUrl = 'https://oxbenjam1n.app.n8n.cloud/webhook-test/ee95c5d8-139e-4d35-8eab-b431b741f563';
+            
+            var payload = {
+                requestId: requestId,
+                message: sanitizedValue,
+                timestamp: new Date().toISOString(),
+                clientInfo: {
+                    platform: navigator.platform.substring(0, 20),
+                    language: navigator.language
                 }
-                
-                // Prepare secure payload with request ID and minimal data
-                const payload = {
-                    requestId: requestId,
-                    message: sanitizedValue,
-                    timestamp: new Date().toISOString(),
-                    // Security: Don't send full user agent, just basic info
-                    clientInfo: {
-                        platform: navigator.platform.substring(0, 20),
-                        language: navigator.language
-                    }
-                };
-                
-                const response = await fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        // Security: Add custom header for webhook validation
-                        'X-Client-Type': 'form-submission',
-                        // Note: In production, add authentication header:
-                        // 'X-API-Key': 'your-secret-token'
-                    },
-                    body: JSON.stringify(payload),
-                    // Security: Reduced timeout and credentials policy
-                    signal: AbortSignal.timeout(8000), // 8 second timeout
-                    credentials: 'omit' // Don't send cookies
-                });
-                
-                // Security: Don't expose detailed server response
+            };
+            
+            fetch(webhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Client-Type': 'form-submission'
+                },
+                body: JSON.stringify(payload),
+                credentials: 'omit'
+            })
+            .then(function(response) {
                 if (response.ok) {
-                    showResult('Message sent successfully!', true);
-                    input.value = ''; // Clear input on success
+                    showResult('Message sent successfully! Waiting for processing...', true);
+                    input.value = '';
+                    updateLoadingText('Waiting for processing...');
+                    startPolling(requestId);
                 } else if (response.status === 429) {
                     showResult('Too many requests. Please try again later.', false);
+                    showLoading(false);
                 } else if (response.status >= 400 && response.status < 500) {
                     showResult('Request rejected. Please check your input.', false);
                     showLoading(false);
@@ -228,54 +365,25 @@
                     showResult('Server temporarily unavailable. Please try again later.', false);
                     showLoading(false);
                 }
-                
-            } catch (error) {
-                // Security: Don't expose detailed error information
-                console.error('Webhook error:', error.message); // Log for debugging only
+            })
+            .catch(function(error) {
+                console.error('Webhook error:', error.message);
                 
                 if (error.name === 'AbortError') {
                     showResult('Request timed out. Please try again.', false);
-                } else if (error.name === 'TypeError' || error.message.includes('fetch')) {
-                    showResult('Network error. Please check your connection.', false);
                 } else {
-                    showResult('Unable to send message. Please try again later.', false);
+                    showResult('Network error. Please check your connection.', false);
                 }
                 
                 showLoading(false);
-            }
+            });
         });
         
-        // Security: Clear any sensitive data on page unload
+        // Cleanup on page unload
         window.addEventListener('beforeunload', function() {
-            const input = document.getElementById('userInput');
+            var input = document.getElementById('userInput');
             if (input) input.value = '';
             stopPolling();
-        }); < 500) {
-                    showResult('Request rejected. Please check your input.', false);
-                } else {
-                    showResult('Server temporarily unavailable. Please try again later.', false);
-                }
-                
-            } catch (error) {
-                // Security: Don't expose detailed error information
-                console.error('Webhook error:', error.message); // Log for debugging only
-                
-                if (error.name === 'AbortError') {
-                    showResult('Request timed out. Please try again.', false);
-                } else if (error.name === 'TypeError' || error.message.includes('fetch')) {
-                    showResult('Network error. Please check your connection.', false);
-                } else {
-                    showResult('Unable to send message. Please try again later.', false);
-                }
-            } finally {
-                showLoading(false);
-            }
-        });
-        
-        // Security: Clear any sensitive data on page unload
-        window.addEventListener('beforeunload', function() {
-            const input = document.getElementById('userInput');
-            if (input) input.value = '';
         });
     </script>
 </body>
