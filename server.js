@@ -168,7 +168,9 @@ app.post('/poll-result/:requestId', (req, res) => {
     const { requestId } = req.params;
     const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
     
-    console.log(`Received POST to /poll-result/${requestId} - redirecting to receive-data logic`);
+    console.log(`=== POST /poll-result/${requestId} ===`);
+    console.log('URL requestId:', requestId);
+    console.log('Body:', JSON.stringify(req.body, null, 2));
     
     // Security: Rate limiting
     if (!checkRateLimit(clientIP)) {
@@ -182,16 +184,23 @@ app.post('/poll-result/:requestId', (req, res) => {
     rateLimitMap.get(clientIP).push(Date.now());
     
     try {
+        // Use requestId from URL, but also check if it's in the body
+        const bodyRequestId = req.body.requestId;
+        const finalRequestId = bodyRequestId || requestId;
+        
+        console.log('Body requestId:', bodyRequestId);
+        console.log('Final requestId to use:', finalRequestId);
+        
         // Add requestId to body if not present
         const bodyWithRequestId = {
             ...req.body,
-            requestId: requestId
+            requestId: finalRequestId
         };
         
         // Validate and sanitize incoming data
         const validation = validateAndSanitizeResponse(bodyWithRequestId);
         if (!validation.valid) {
-            console.log('Invalid data received:', validation.message);
+            console.log('Validation failed:', validation.message);
             return res.status(400).json({
                 error: 'Bad Request',
                 message: 'Invalid data format'
@@ -200,10 +209,11 @@ app.post('/poll-result/:requestId', (req, res) => {
         
         const sanitizedData = validation.data;
         
-        // Store response by requestId
+        // Store response by requestId (use the sanitized requestId)
         responses.set(sanitizedData.requestId, sanitizedData);
         
-        console.log(`Received response via POST /poll-result for requestId: ${sanitizedData.requestId}`);
+        console.log(`✅ Stored response for requestId: "${sanitizedData.requestId}"`);
+        console.log('Current stored keys:', Array.from(responses.keys()));
         
         res.status(200).json({
             success: true,
@@ -224,22 +234,44 @@ app.post('/poll-result/:requestId', (req, res) => {
 app.get('/poll-result/:requestId', (req, res) => {
     const { requestId } = req.params;
     
-    // Security: Validate requestId format - more lenient now
-    if (!requestId || requestId.length === 0) {
-        return res.status(400).json({
-            error: 'Invalid requestId format'
-        });
+    console.log(`=== GET /poll-result/${requestId} ===`);
+    console.log('Requested requestId:', requestId);
+    console.log('Available response keys:', Array.from(responses.keys()));
+    
+    // Try exact match first
+    let response = responses.get(requestId);
+    
+    if (!response) {
+        // Try to find by string conversion (in case of type mismatch)
+        const stringRequestId = String(requestId);
+        response = responses.get(stringRequestId);
+        
+        if (!response) {
+            // Try to find by number conversion
+            const numberRequestId = Number(requestId);
+            if (!isNaN(numberRequestId)) {
+                response = responses.get(numberRequestId.toString());
+            }
+        }
+        
+        if (!response) {
+            // Debug: show what keys we have vs what was requested
+            console.log('❌ No match found');
+            console.log('Looking for:', requestId, typeof requestId);
+            console.log('Available keys:');
+            responses.forEach((value, key) => {
+                console.log(`  - "${key}" (${typeof key})`);
+            });
+        }
     }
     
-    console.log(`Polling for requestId: ${requestId}`);
-    console.log(`Available responses: ${Array.from(responses.keys()).join(', ')}`);
-    
-    const response = responses.get(requestId);
-    
     if (response) {
-        console.log(`Found response for ${requestId}:`, response);
+        console.log(`✅ Found response for "${requestId}"`);
         // Return the result and remove it (one-time use)
         responses.delete(requestId);
+        // Also try to delete by string version
+        responses.delete(String(requestId));
+        
         res.status(200).json({
             success: true,
             data: {
@@ -250,10 +282,14 @@ app.get('/poll-result/:requestId', (req, res) => {
             }
         });
     } else {
-        console.log(`No response found for ${requestId}`);
+        console.log(`❌ No response found for "${requestId}"`);
         res.status(202).json({
             success: false,
-            message: 'Result not ready yet'
+            message: 'Result not ready yet',
+            debug: {
+                requestedId: requestId,
+                availableIds: Array.from(responses.keys())
+            }
         });
     }
 });
