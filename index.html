@@ -250,11 +250,19 @@
             var n8nResultContent = document.getElementById('n8nResultContent');
             var confirmationSection = document.getElementById('confirmationSection');
             
+            console.log('showN8nResult called with data:', data);
+            console.log('Current stored values before processing result:', {
+                originalUsername: originalUsername,
+                currentRequestId: currentRequestId
+            });
+            
             // Store the Instagram data globally for later use
             try {
                 currentInstagramData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+                console.log('Instagram data stored:', currentInstagramData);
             } catch (e) {
                 currentInstagramData = data.result;
+                console.log('Instagram data stored (fallback):', currentInstagramData);
             }
             
             n8nResultContent.innerHTML = '';
@@ -447,7 +455,7 @@
                 processButton.textContent = originalText;
                 processButton.className = processButton.className.replace('bg-gray-400 cursor-not-allowed', 'bg-purple-600 hover:bg-purple-700');
                 
-                // Reset checkboxes and forms for next use
+                // Reset checkboxes for next use (but keep stored data)
                 document.getElementById('processPosts').checked = false;
                 document.getElementById('processHighlights').checked = false;
                 document.getElementById('confirmOwnership').checked = false;
@@ -455,10 +463,11 @@
                 document.getElementById('processButton').disabled = true;
                 document.getElementById('processingPage').classList.add('hidden');
                 
-                // Clear stored data for next use
-                currentInstagramData = null;
-                originalUsername = '';
-                currentRequestId = '';
+                // DON'T clear the stored data here - keep it for potential reuse
+                console.log('Form reset, but keeping stored data:', {
+                    originalUsername: originalUsername,
+                    currentRequestId: currentRequestId
+                });
             });
         });
         
@@ -501,6 +510,11 @@
         // Form submission
         document.getElementById('simpleForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            
+            // Clear any previous session data when starting a new submission
+            currentInstagramData = null;
+            originalUsername = '';
+            currentRequestId = '';
             
             var input = document.getElementById('userInput');
             var rawValue = input.value;
