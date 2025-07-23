@@ -97,7 +97,7 @@ function validateAndSanitizeResponse(data) {
     return { valid: true, data: sanitizedData };
 }
 
-// Endpoint to receive data from n8n
+// Endpoint to receive data from n8n (primary endpoint)
 app.post('/receive-data', (req, res) => {
     const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
     
@@ -145,7 +145,64 @@ app.post('/receive-data', (req, res) => {
     }
 });
 
-// Endpoint to poll for results by requestId
+// Alternative endpoint for n8n (if n8n is configured to send to poll-result)
+app.post('/poll-result/:requestId', (req, res) => {
+    const { requestId } = req.params;
+    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
+    console.log(`Received POST to /poll-result/${requestId} - redirecting to receive-data logic`);
+    
+    // Security: Rate limiting
+    if (!checkRateLimit(clientIP)) {
+        return res.status(429).json({
+            error: 'Too many requests',
+            message: 'Rate limit exceeded'
+        });
+    }
+    
+    // Add current request to rate limit tracking
+    rateLimitMap.get(clientIP).push(Date.now());
+    
+    try {
+        // Add requestId to body if not present
+        const bodyWithRequestId = {
+            ...req.body,
+            requestId: requestId
+        };
+        
+        // Validate and sanitize incoming data
+        const validation = validateAndSanitizeResponse(bodyWithRequestId);
+        if (!validation.valid) {
+            console.log('Invalid data received:', validation.message);
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Invalid data format'
+            });
+        }
+        
+        const sanitizedData = validation.data;
+        
+        // Store response by requestId
+        responses.set(sanitizedData.requestId, sanitizedData);
+        
+        console.log(`Received response via POST /poll-result for requestId: ${sanitizedData.requestId}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Data received successfully',
+            requestId: sanitizedData.requestId
+        });
+        
+    } catch (error) {
+        console.error('Error processing received data:', error.message);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to process data'
+        });
+    }
+});
+
+// Endpoint to poll for results by requestId (GET method)
 app.get('/poll-result/:requestId', (req, res) => {
     const { requestId } = req.params;
     
