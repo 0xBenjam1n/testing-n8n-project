@@ -4,20 +4,187 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security: Store responses by request ID with TTL
+const responses = new Map();
+const RESPONSE_TTL = 10 * 60 * 1000; // 10 minutes
+
+// Middleware for parsing JSON
+app.use(express.json({ limit: '1mb' })); // Limit payload size for security
+
 // Security headers
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     next();
 });
+
+// Rate limiting for receive-data endpoint
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX = 20; // max 20 requests per minute per IP
+
+function checkRateLimit(ip) {
+    const now = Date.now();
+    const windowStart = now - RATE_LIMIT_WINDOW;
+    
+    if (!rateLimitMap.has(ip)) {
+        rateLimitMap.set(ip, []);
+    }
+    
+    const requests = rateLimitMap.get(ip);
+    // Remove old requests
+    const validRequests = requests.filter(time => time > windowStart);
+    rateLimitMap.set(ip, validRequests);
+    
+    return validRequests.length < RATE_LIMIT_MAX;
+}
+
+// Clean up old responses and rate limit data
+setInterval(() => {
+    const now = Date.now();
+    
+    // Clean up old responses
+    for (const [key, value] of responses.entries()) {
+        if (now - value.timestamp > RESPONSE_TTL) {
+            responses.delete(key);
+        }
+    }
+    
+    // Clean up old rate limit data
+    const windowStart = now - RATE_LIMIT_WINDOW;
+    for (const [ip, requests] of rateLimitMap.entries()) {
+        const validRequests = requests.filter(time => time > windowStart);
+        if (validRequests.length === 0) {
+            rateLimitMap.delete(ip);
+        } else {
+            rateLimitMap.set(ip, validRequests);
+        }
+    }
+}, 60000); // Clean every minute
 
 // Serve static files from root directory
 app.use(express.static(__dirname));
 
+// Security: Validate and sanitize incoming data
+function validateAndSanitizeResponse(data) {
+    if (!data || typeof data !== 'object') {
+        return { valid: false, message: 'Invalid data format' };
+    }
+    
+    const { requestId, result, status, message } = data;
+    
+    // Validate required fields
+    if (!requestId || typeof requestId !== 'string') {
+        return { valid: false, message: 'Missing or invalid requestId' };
+    }
+    
+    // Validate requestId format
+    if (!/^[0-9]+-[a-zA-Z0-9]+$/.test(requestId)) {
+        return { valid: false, message: 'Invalid requestId format' };
+    }
+    
+    // Sanitize data
+    const sanitizedData = {
+        requestId: requestId.substring(0, 50), // Limit length
+        result: typeof result === 'string' ? result.substring(0, 1000) : result,
+        status: typeof status === 'string' ? status.substring(0, 20) : 'unknown',
+        message: typeof message === 'string' ? message.substring(0, 500) : '',
+        timestamp: Date.now()
+    };
+    
+    return { valid: true, data: sanitizedData };
+}
+
+// Endpoint to receive data from n8n
+app.post('/receive-data', (req, res) => {
+    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
+    // Security: Rate limiting
+    if (!checkRateLimit(clientIP)) {
+        return res.status(429).json({
+            error: 'Too many requests',
+            message: 'Rate limit exceeded'
+        });
+    }
+    
+    // Add current request to rate limit tracking
+    rateLimitMap.get(clientIP).push(Date.now());
+    
+    try {
+        // Validate and sanitize incoming data
+        const validation = validateAndSanitizeResponse(req.body);
+        if (!validation.valid) {
+            console.log('Invalid data received:', validation.message);
+            return res.status(400).json({
+                error: 'Bad Request',
+                message: 'Invalid data format'
+            });
+        }
+        
+        const sanitizedData = validation.data;
+        
+        // Store response by requestId
+        responses.set(sanitizedData.requestId, sanitizedData);
+        
+        console.log(`Received response for requestId: ${sanitizedData.requestId}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Data received successfully',
+            requestId: sanitizedData.requestId
+        });
+        
+    } catch (error) {
+        console.error('Error processing received data:', error.message);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to process data'
+        });
+    }
+});
+
+// Endpoint to poll for results by requestId
+app.get('/poll-result/:requestId', (req, res) => {
+    const { requestId } = req.params;
+    
+    // Security: Validate requestId format
+    if (!requestId || !/^[0-9]+-[a-zA-Z0-9]+$/.test(requestId)) {
+        return res.status(400).json({
+            error: 'Invalid requestId format'
+        });
+    }
+    
+    const response = responses.get(requestId);
+    
+    if (response) {
+        // Return the result and remove it (one-time use)
+        responses.delete(requestId);
+        res.status(200).json({
+            success: true,
+            data: {
+                result: response.result,
+                status: response.status,
+                message: response.message,
+                timestamp: response.timestamp
+            }
+        });
+    } else {
+        res.status(202).json({
+            success: false,
+            message: 'Result not ready yet'
+        });
+    }
+});
+
 // Health check endpoint for Railway
 app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+    res.status(200).json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        activeResponses: responses.size
+    });
 });
 
 // Debug route to check file structure
@@ -30,7 +197,8 @@ app.get('/debug', (req, res) => {
         res.json({
             rootPath,
             files,
-            indexExists: fs.existsSync(path.join(rootPath, 'index.html'))
+            indexExists: fs.existsSync(path.join(rootPath, 'index.html')),
+            activeResponses: responses.size
         });
     } catch (error) {
         res.json({ error: error.message, rootPath });
