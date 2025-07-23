@@ -228,6 +228,7 @@
                 .then(function(data) {
                     if (data && data.success && data.data) {
                         clearInterval(processingPollInterval);
+                        console.log('Processing result received:', data.data);
                         showProcessingResult(data.data);
                         showProcessingLoading(false);
                     }
