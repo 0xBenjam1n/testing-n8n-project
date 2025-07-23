@@ -223,6 +223,35 @@
                     showResult('Too many requests. Please try again later.', false);
                 } else if (response.status >= 400 && response.status < 500) {
                     showResult('Request rejected. Please check your input.', false);
+                    showLoading(false);
+                } else {
+                    showResult('Server temporarily unavailable. Please try again later.', false);
+                    showLoading(false);
+                }
+                
+            } catch (error) {
+                // Security: Don't expose detailed error information
+                console.error('Webhook error:', error.message); // Log for debugging only
+                
+                if (error.name === 'AbortError') {
+                    showResult('Request timed out. Please try again.', false);
+                } else if (error.name === 'TypeError' || error.message.includes('fetch')) {
+                    showResult('Network error. Please check your connection.', false);
+                } else {
+                    showResult('Unable to send message. Please try again later.', false);
+                }
+                
+                showLoading(false);
+            }
+        });
+        
+        // Security: Clear any sensitive data on page unload
+        window.addEventListener('beforeunload', function() {
+            const input = document.getElementById('userInput');
+            if (input) input.value = '';
+            stopPolling();
+        }); < 500) {
+                    showResult('Request rejected. Please check your input.', false);
                 } else {
                     showResult('Server temporarily unavailable. Please try again later.', false);
                 }
