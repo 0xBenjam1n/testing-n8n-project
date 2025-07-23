@@ -73,6 +73,58 @@ function validateAndSanitizeResponse(data) {
     }
     
     // Ensure requestId follows expected format (timestamp-randomstring)
+    if (!/^\d{13}-[a-zA-Z0-9]{5,20}$/.test(stringRequestId)) {
+        return { valid: false, message: 'RequestId does not match expected format' };
+    }
+    
+    const sanitizedData = {
+        requestId: stringRequestId,
+        result: result || 'No result provided',
+        status: status || 'unknown',
+        message: message || 'No message provided',
+        timestamp: Date.now()
+    };
+    
+    return { valid: true, data: sanitizedData };
+}
+    
+    // Enhanced requestId validation for security
+    if (!requestId) {
+        return { valid: false, message: 'Missing requestId' };
+    }
+    
+    // Convert to string and validate
+    let stringRequestId = String(requestId).trim();
+    
+    // Security checks for requestId
+    if (stringRequestId.length === 0) {
+        return { valid: false, message: 'Empty requestId' };
+    }
+    
+    if (stringRequestId.length > 50) {
+        return { valid: false, message: 'RequestId too long' };
+    }
+    
+    // Check for malicious patterns in requestId
+    const maliciousPatterns = [
+        /[<>]/g,                    // HTML tags
+        /javascript:/i,             // JavaScript protocol
+        /data:/i,                   // Data protocol
+        /vbscript:/i,              // VBScript protocol
+        /on\w+\s*=/i,              // Event handlers
+        /\.\./,                     // Directory traversal
+        /[\/\\]/,                   // Path separators
+        /[\x00-\x1F\x7F]/,         // Control characters
+        /[^\w\-]/                   // Only allow alphanumeric, underscore, hyphen
+    ];
+    
+    for (const pattern of maliciousPatterns) {
+        if (pattern.test(stringRequestId)) {
+            return { valid: false, message: 'Invalid requestId format' };
+        }
+    }
+    
+    // Ensure requestId follows expected format (timestamp-randomstring)
     if (!/^\d{13}-[a-zA-Z0-9]{5const express = require('express');
 const path = require('path');
 
