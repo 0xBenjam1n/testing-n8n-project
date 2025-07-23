@@ -1,4 +1,76 @@
-const express = require('express');
+// Security: Validate and sanitize incoming data
+function validateAndSanitizeResponse(data) {
+    console.log('📥 Raw received data:', JSON.stringify(data, null, 2));
+    
+    if (!data || typeof data !== 'object') {
+        return { valid: false, message: 'Invalid data format' };
+    }
+    
+    // Check if data is wrapped in a "check" field
+    let actualData = data;
+    if (data.check && typeof data.check === 'object') {
+        console.log('🔍 Found data wrapped in "check" field');
+        actualData = data.check;
+    }
+    
+    const { requestId, result, status, message } = actualData;
+    
+    console.log('📋 Extracted fields:');
+    console.log('  - requestId:', requestId, typeof requestId);
+    console.log('  - result:', result ? 'EXISTS' : 'MISSING', typeof result);
+    console.log('  - status:', status, typeof status);
+    console.log('  - message:', message, typeof message);
+    
+    // Validate required fields - convert requestId to string if it's a number
+    let stringRequestId;
+    if (typeof requestId === 'string') {
+        stringRequestId = requestId;
+    } else if (typeof requestId === 'number') {
+        stringRequestId = requestId.toString();
+    } else if (requestId) {
+        stringRequestId = String(requestId);
+    } else {
+        return { valid: false, message: 'Missing or invalid requestId' };
+    }
+    
+    // Validate requestId format after converting to string
+    if (stringRequestId.length === 0) {
+        return { valid: false, message: 'Empty requestId' };
+    }
+    
+    // Show what we actually received for each field
+    console.log('🔍 Field analysis:');
+    if (result === undefined) console.log('  ⚠️ result is undefined');
+    if (result === null) console.log('  ⚠️ result is null');
+    if (result === '') console.log('  ⚠️ result is empty string');
+    if (status === undefined) console.log('  ⚠️ status is undefined');
+    if (status === null) console.log('  ⚠️ status is null');
+    if (message === undefined) console.log('  ⚠️ message is undefined');
+    if (message === null) console.log('  ⚠️ message is null');
+    
+    // Sanitize data with better handling
+    const sanitizedData = {
+        requestId: stringRequestId.substring(0, 50),
+        result: result !== undefined && result !== null ? 
+            (typeof result === 'string' ? result.substring(0, 5000) : JSON.stringify(result).substring(0, 5000)) : 
+            'No result provided',
+        status: status !== undefined && status !== null ? 
+            String(status).substring(0, 20) : 
+            'unknown',
+        message: message !== undefined && message !== null ? 
+            String(message).substring(0, 500) : 
+            'No message provided',
+        timestamp: Date.now()
+    };
+    
+    console.log('✅ Sanitized data summary:');
+    console.log('  - requestId:', sanitizedData.requestId);
+    console.log('  - result length:', sanitizedData.result.length);
+    console.log('  - status:', sanitizedData.status);
+    console.log('  - message:', sanitizedData.message);
+    
+    return { valid: true, data: sanitizedData };
+}const express = require('express');
 const path = require('path');
 
 const app = express();
@@ -76,7 +148,7 @@ app.use(express.static(__dirname));
 
 // Security: Validate and sanitize incoming data
 function validateAndSanitizeResponse(data) {
-    console.log('Raw received data:', JSON.stringify(data, null, 2));
+    console.log('📥 Raw received data:', JSON.stringify(data, null, 2));
     
     if (!data || typeof data !== 'object') {
         return { valid: false, message: 'Invalid data format' };
@@ -84,7 +156,11 @@ function validateAndSanitizeResponse(data) {
     
     const { requestId, result, status, message } = data;
     
-    console.log('Extracted fields:', { requestId, result: typeof result, status, message });
+    console.log('📋 Extracted fields:');
+    console.log('  - requestId:', requestId, typeof requestId);
+    console.log('  - result:', result ? 'EXISTS' : 'MISSING', typeof result);
+    console.log('  - status:', status, typeof status);
+    console.log('  - message:', message, typeof message);
     
     // Validate required fields - convert requestId to string if it's a number
     let stringRequestId;
@@ -103,21 +179,36 @@ function validateAndSanitizeResponse(data) {
         return { valid: false, message: 'Empty requestId' };
     }
     
-    // Sanitize data with better handling
+    // Show what we actually received for each field
+    console.log('🔍 Field analysis:');
+    if (result === undefined) console.log('  ⚠️ result is undefined');
+    if (result === null) console.log('  ⚠️ result is null');
+    if (result === '') console.log('  ⚠️ result is empty string');
+    if (status === undefined) console.log('  ⚠️ status is undefined');
+    if (status === null) console.log('  ⚠️ status is null');
+    if (message === undefined) console.log('  ⚠️ message is undefined');
+    if (message === null) console.log('  ⚠️ message is null');
+    
+    // Sanitize data with better handling - don't use defaults yet
     const sanitizedData = {
-        requestId: stringRequestId.substring(0, 50), // Convert to string and limit length
-        result: result !== undefined ? (typeof result === 'string' ? result.substring(0, 5000) : JSON.stringify(result).substring(0, 5000)) : 'No result provided',
-        status: status !== undefined ? String(status).substring(0, 20) : 'unknown',
-        message: message !== undefined ? String(message).substring(0, 500) : 'No message provided',
+        requestId: stringRequestId.substring(0, 50),
+        result: result !== undefined && result !== null ? 
+            (typeof result === 'string' ? result.substring(0, 5000) : JSON.stringify(result).substring(0, 5000)) : 
+            'No result provided',
+        status: status !== undefined && status !== null ? 
+            String(status).substring(0, 20) : 
+            'unknown',
+        message: message !== undefined && message !== null ? 
+            String(message).substring(0, 500) : 
+            'No message provided',
         timestamp: Date.now()
     };
     
-    console.log('Sanitized data:', {
-        requestId: sanitizedData.requestId,
-        resultLength: sanitizedData.result.length,
-        status: sanitizedData.status,
-        message: sanitizedData.message
-    });
+    console.log('✅ Sanitized data summary:');
+    console.log('  - requestId:', sanitizedData.requestId);
+    console.log('  - result length:', sanitizedData.result.length);
+    console.log('  - status:', sanitizedData.status);
+    console.log('  - message:', sanitizedData.message);
     
     return { valid: true, data: sanitizedData };
 }
