@@ -67,7 +67,7 @@ setInterval(() => {
 // Serve static files from root directory
 app.use(express.static(__dirname));
 
-// Simple validation function
+// Simple validation function with enhanced requestId security
 function validateAndSanitizeResponse(data) {
     console.log('Received data:', JSON.stringify(data, null, 2));
     
@@ -83,11 +83,45 @@ function validateAndSanitizeResponse(data) {
     
     const { requestId, result, status, message } = actualData;
     
-    // Convert requestId to string
-    let stringRequestId = String(requestId);
-    
-    if (!stringRequestId || stringRequestId === 'undefined') {
+    // Enhanced requestId validation for security
+    if (!requestId) {
         return { valid: false, message: 'Missing requestId' };
+    }
+    
+    // Convert to string and validate
+    let stringRequestId = String(requestId).trim();
+    
+    // Security checks for requestId
+    if (stringRequestId.length === 0) {
+        return { valid: false, message: 'Empty requestId' };
+    }
+    
+    if (stringRequestId.length > 50) {
+        return { valid: false, message: 'RequestId too long' };
+    }
+    
+    // Check for malicious patterns in requestId
+    const maliciousPatterns = [
+        /[<>]/g,                    // HTML tags
+        /javascript:/i,             // JavaScript protocol
+        /data:/i,                   // Data protocol
+        /vbscript:/i,              // VBScript protocol
+        /on\w+\s*=/i,              // Event handlers
+        /\.\./,                     // Directory traversal
+        /[\/\\]/,                   // Path separators
+        /[\x00-\x1F\x7F]/,         // Control characters
+        /[^\w\-]/                   // Only allow alphanumeric, underscore, hyphen
+    ];
+    
+    for (const pattern of maliciousPatterns) {
+        if (pattern.test(stringRequestId)) {
+            return { valid: false, message: 'Invalid requestId format' };
+        }
+    }
+    
+    // Ensure requestId follows expected format (timestamp-randomstring)
+    if (!/^\d{13}-[a-zA-Z0-9]{5,20}$/.test(stringRequestId)) {
+        return { valid: false, message: 'RequestId does not match expected format' };
     }
     
     const sanitizedData = {
@@ -191,16 +225,60 @@ app.post('/poll-result/:requestId', (req, res) => {
     }
 });
 
-// Endpoint to poll for results by requestId
+// Endpoint to poll for results by requestId (with security validation)
 app.get('/poll-result/:requestId', (req, res) => {
     const { requestId } = req.params;
     
-    console.log(`Polling for requestId: ${requestId}`);
+    // Security: Validate requestId format from URL parameter
+    if (!requestId || typeof requestId !== 'string') {
+        return res.status(400).json({
+            error: 'Invalid requestId parameter'
+        });
+    }
     
-    const response = responses.get(requestId);
+    const trimmedRequestId = requestId.trim();
+    
+    // Security checks for URL parameter
+    if (trimmedRequestId.length === 0 || trimmedRequestId.length > 50) {
+        return res.status(400).json({
+            error: 'Invalid requestId length'
+        });
+    }
+    
+    // Check for malicious patterns in URL requestId
+    const maliciousPatterns = [
+        /[<>]/g,                    // HTML tags
+        /javascript:/i,             // JavaScript protocol
+        /data:/i,                   // Data protocol
+        /vbscript:/i,              // VBScript protocol
+        /on\w+\s*=/i,              // Event handlers
+        /\.\./,                     // Directory traversal
+        /[\/\\]/,                   // Path separators (except the one in URL)
+        /[\x00-\x1F\x7F]/,         // Control characters
+        /[^\w\-]/                   // Only allow alphanumeric, underscore, hyphen
+    ];
+    
+    for (const pattern of maliciousPatterns) {
+        if (pattern.test(trimmedRequestId)) {
+            return res.status(400).json({
+                error: 'Invalid requestId format'
+            });
+        }
+    }
+    
+    // Ensure requestId follows expected format
+    if (!/^\d{13}-[a-zA-Z0-9]{5,20}$/.test(trimmedRequestId)) {
+        return res.status(400).json({
+            error: 'RequestId does not match expected format'
+        });
+    }
+    
+    console.log(`Polling for requestId: ${trimmedRequestId}`);
+    
+    const response = responses.get(trimmedRequestId);
     
     if (response) {
-        console.log(`Found response for ${requestId}`);
+        console.log(`Found response for ${trimmedRequestId}`);
         
         res.status(200).json({
             success: true,
