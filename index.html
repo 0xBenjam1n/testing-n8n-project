@@ -386,8 +386,15 @@
                 posts: postsChecked,
                 highlights: highlightsChecked,
                 postsCount: postsCount,
-                highlightsCount: highlightsCount
+                highlightsCount: highlightsCount,
+                requestId: currentRequestId
             });
+            
+            // Check if we have the required data
+            if (!originalUsername || !currentRequestId) {
+                alert('Error: Missing username or request ID. Please refresh and try again.');
+                return;
+            }
             
             // Disable the button and show loading state
             var processButton = document.getElementById('processButton');
